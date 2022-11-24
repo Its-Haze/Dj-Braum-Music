@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Status](https://img.shields.io/badge/status-active-success.svg)]() [![Forks](https://img.shields.io/github/forks/Erik-Avakian/Dj-Braum-Music)]() [![Stars](https://img.shields.io/github/stars/Erik-Avakian/Dj-Braum-Music)]() [![GitHub Issues](https://img.shields.io/github/issues/Erik-Avakian/Dj-Braum-Music)](https://github.com/Erik-Avakian/Dj-Braum-Music/issues) [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/kylelobo/The-Documentation-Compendium.svg)](https://github.com/Erik-Avakian/Dj-Braum-Music/pulls) [![License](https://img.shields.io/badge/license-MIT-purple.svg)](/LICENSE)
+[![Status](https://img.shields.io/badge/status-active-success.svg)]() [![Forks](https://img.shields.io/github/forks/Its-Haze/Dj-Braum-Music)]() [![Stars](https://img.shields.io/github/stars/Its-Haze/Dj-Braum-Music)]() [![GitHub Issues](https://img.shields.io/github/issues/Its-Haze/Dj-Braum-Music)](https://github.com/Its-Haze/Dj-Braum-Music/issues) [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/kylelobo/The-Documentation-Compendium.svg)](https://github.com/Its-Haze/Dj-Braum-Music/pulls) [![License](https://img.shields.io/badge/license-MIT-purple.svg)](/LICENSE)
 
 </div>
 
@@ -38,7 +38,7 @@ Join the official support server here https://discord.gg/dQwCc6tkvj
 Clone the Repository
 
 ```sh
-$ git clone https://github.com/Erik-Avakian/Dj-Braum-Music.git
+$ git clone https://github.com/Its-Haze/Dj-Braum-Music.git
 ```
 
 Enter Dj-Braum-Music and install all the requirements using
@@ -81,7 +81,7 @@ $ source venv/bin/activate
 $ pip3 install -Ur requirements.txt
 ```
 
-Fill in [`.env`](https://github.com/Erik-Avakian/Dj-Braum-Music/blob/master/src/credentials/.env) with all the appropiate info. (Check the file)
+Fill in [`.env`](https://github.com/Its-Haze/Dj-Braum-Music/blob/master/src/credentials/.env) with all the appropiate info. (Check the file)
 
 # Install Java 17+
 
@@ -124,15 +124,15 @@ $ python3 main.py
   Read more about virtual environments here [Virtualenv](https://virtualenv.pypa.io/en/latest/user_guide.html)
 - To run this bot 24/7 I recommend using a [raspberry pi 4](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/) (Non affiliate link)
 - Do not run this bot on Replit, Heroku and such.. they will give you more headache.
-- If you find issues, please report them [here](https://github.com/Erik-Avakian/Dj-Braum-Music/issues)
+- If you find issues, please report them [here](https://github.com/Its-Haze/Dj-Braum-Music/issues)
 
 <br>
 
 # ✍️ Contributers
 
-- [@Erik-Avakian](https://github.com/Erik-Avakian) - Creator
+- [@Its-Haze](https://github.com/Its-Haze) - Creator
 
-See also the list of [contributors](https://github.com/Erik-Avakian/Dj-Braum-Music/graphs/contributors) who participated in this project.
+See also the list of [contributors](https://github.com/Its-Haze/Dj-Braum-Music/graphs/contributors) who participated in this project.
 
 # 🖌️ Contributing
 
