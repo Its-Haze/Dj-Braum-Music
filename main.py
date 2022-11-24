@@ -1,0 +1,150 @@
+"""Main file to run the Bot from."""
+import asyncio
+import logging.handlers
+
+import discord
+import wavelink
+from discord.ext import commands
+
+from logs import settings
+from src.credentials.loader import EnvLoader
+from src.utils.cogs_loader import cog_loader
+
+env_loader = EnvLoader.load_env()
+logger = settings.logging.getLogger("bot")
+
+## Default intents are enough as slash commands are used.
+intents = discord.Intents.all()
+client = commands.Bot(
+    command_prefix="!",
+    intents=intents,
+    help_command=None,
+    activity=discord.Activity(
+        type=discord.ActivityType.playing,
+        name="music | /play",
+    ),
+)
+
+
+## Slash commands.
+# slash = app_commands.CommandTree(client)
+# music = MusicHelper()
+# --------------------------------------------
+# @tasks.loop(minutes=5)
+# async def update_status():  ## Updates the bot's status every 5 minutes.
+#     """Updates the bot every five minutes"""
+#     ## Retrieve all the bots servers.
+#     server_count = client.guilds
+#     await client.change_presence(
+#         activity=discord.Activity(
+#             type=discord.ActivityType.playing,
+#             ## Update the status with bot's the guild count.
+#             name=f"music | /play | Supporting {len(server_count)} Servers!",
+#         )
+#     )
+
+
+async def connect_nodes():
+    """Connects to the self hosted lavalink server"""
+    logger.info("Connecting Nodes")
+    await client.wait_until_ready()  ## Wait until the bot is ready.
+    await wavelink.NodePool.create_node(
+        bot=client,
+        host=env_loader.lavalink_host,
+        port=env_loader.lavalink_port,
+        password=env_loader.lavalink_pass,
+    )  ## Connect to the lavalink server.
+
+
+### Bot Events
+@client.event
+async def on_ready():
+    """This event runs when the bot is connected and ready to be used."""
+    ## Sync slash comands.
+    await client.tree.sync()
+
+    ## Create task to connect to the lavalink server.
+    client.loop.create_task(connect_nodes())
+    logger.info(
+        f"User {client.user} is Online in {len(client.guilds)} servers, and it ready to play music!!"
+    )
+    print(
+        f"{'~~~' * 30}\n{client.user} is online in {len(client.guilds)} servers, and is ready to play music\n{'~~~' * 30}"
+    )
+
+    ## Start the update status loop.
+    # await update_status.start()
+
+
+@client.event
+async def on_guild_join(guild):
+    """When braum joins a guild it adds that guild and a default server prefix to database"""
+    join_msg = (
+        "I Am Braum!, Your Personal Support!!\n\n"
+        "To start playing music, just use my slash commands!\n"
+        "/play | Braum plays your desired song!"
+        "/url | Braum plays a spofity song!"
+    )
+    print("---" * 40)
+    print("BRAUM HAS JOINED  -->", guild.name)
+    if (
+        guild.system_channel
+        and guild.system_channel.permissions_for(guild.me).send_messages
+    ):
+        await guild.system_channel.send(join_msg)
+    else:
+        all_channels = [
+            channel
+            for channel in guild.text_channels
+            if channel.permissions_for(guild.me).send_messages and not channel.is_nsfw()
+        ]
+        if len(all_channels) == 0:
+            try:
+                await guild.owner.send(
+                    f"Thanks for inviting Braum.\n\nIt seems like I can't send messages in {guild.name}.\nPlease give permissions to send messages in text channels.\nOtherwise i am kinda useless :(\n\n\nWhen i have permission to send messages in text channels, try to use the ``!help`` command to see what i can do :)."
+                )
+            except discord.Forbidden:
+                print("Guild owner has disabled DM's" * 10)
+        else:
+            valid_channels = [
+                channel
+                for channel in all_channels
+                if "general" in channel.name.lower() or "bot" in channel.name.lower()
+            ]
+            if len(valid_channels) == 0:
+                valid_channel = all_channels[0]
+                await valid_channel.send(join_msg)
+            else:
+                valid_channel = valid_channels[0]
+                await valid_channel.send(join_msg)
+
+
+@client.event
+async def on_guild_remove(guild: discord.Guild):
+    """
+    Triggers when the Client leaves the Guild
+    """
+    leave_msg = (
+        "I am sorry, but i have to roam to another lane now..\n"
+        "It was nice supporting you ❤️\n\n"
+        "If you ever need me again, you know where to find me"
+    )
+    print("---" * 40)
+    print("BRAUM HAS LEFT  -->", guild.name)
+
+    try:
+        await guild.owner.send(leave_msg)
+    except discord.Forbidden as exc_forbidden:
+        print(f"Guild owner has disabled DM's\n{exc_forbidden}")
+
+
+async def main():
+    """main function"""
+
+    await cog_loader(client=client)
+    await client.start(token=env_loader.bot_token)
+
+
+if __name__ == "__main__":
+    assert env_loader.bot_token is not None, "NO TOKEN IN .ENV file"
+    asyncio.run(main())
