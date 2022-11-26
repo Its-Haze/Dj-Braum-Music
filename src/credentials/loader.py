@@ -1,6 +1,7 @@
 """Credentials Loader"""
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 import dotenv
 
@@ -14,26 +15,26 @@ class EnvLoader:
     """
 
     # Bot Info
-    bot_token: str | None
-    vote_url: str | None
-    invite_url: str | None
-    support_server_url: str | None
+    bot_token: Optional[str]
+    vote_url: Optional[str]
+    invite_url: Optional[str]
+    support_server_url: Optional[str]
 
     # Lavalink Server Info
-    lavalink_host: str | None
-    lavalink_port: str | None
-    lavalink_pass: str | None
+    lavalink_host: Optional[str]
+    lavalink_port: Optional[str]
+    lavalink_pass: Optional[str]
 
     # Spotify Credentials
-    spotify_client_id: str | None
-    spotify_client_secret: str | None
-    spotify_trending_id: str | None
+    spotify_client_id: Optional[str]
+    spotify_client_secret: Optional[str]
+    spotify_trending_id: Optional[str]
 
     # Logging Channel
-    logging_id: str | None
+    logging_id: Optional[str]
 
     # Genius
-    genius: str | None
+    genius: Optional[str]
 
     @classmethod
     def load_env(cls):
@@ -57,6 +58,6 @@ class EnvLoader:
                 "spotify_client_secret": os.getenv("SPOTCLIENT"),
                 "spotify_trending_id": os.getenv("SPOTIFY_TRENDING_ID"),
                 "logging_id": os.getenv("LOGID"),
-                "genius": os.getenv("GENIUSKEY")
+                "genius": os.getenv("GENIUSKEY"),
             }
         )

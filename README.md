@@ -76,9 +76,9 @@ $ py.exe -m pip install -r requirements.txt
 ```bash
 $ cd Dj-Braum-Music
 $ python3 -m pip install virtualenv
-$ python3 -m pip virtualenv venv
+$ python3 -m virtualenv venv
 $ source venv/bin/activate
-$ pip3 install -Ur requirements.txt
+$ pip3 install -r requirements.txt
 ```
 
 Fill in [`.env`](https://github.com/Its-Haze/Dj-Braum-Music/blob/master/src/credentials/.env) with all the appropiate info. (Check the file)
