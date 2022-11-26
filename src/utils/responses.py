@@ -4,7 +4,7 @@ that will be used for MusicHelper
 """
 import random
 from time import gmtime, strftime
-from typing import Literal
+from typing import Literal, Optional
 
 import discord
 import lyricsgenius
@@ -12,7 +12,7 @@ import spotipy
 import wavelink
 from spotipy import SpotifyException
 
-from src.utils.functions import Functions
+from src.utils.functions import Functions  # pylint:disable=import-error
 
 
 class Responses(Functions):  ## Contains various bot responses.
@@ -25,10 +25,10 @@ class Responses(Functions):  ## Contains various bot responses.
     genius: lyricsgenius.Genius
     err_color: Literal
     sucess_color: Literal
-    trending_uri: str | None
-    vote_url: str | None
-    invite_url: str | None
-    support_url: str | None
+    trending_uri: Optional[str]
+    vote_url: Optional[str]
+    invite_url: Optional[str]
+    support_url: Optional[str]
     strftime: strftime
     gmtime: gmtime
     random: random

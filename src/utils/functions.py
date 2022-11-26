@@ -1,6 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 from time import gmtime, strftime
+from typing import Optional
 
 import lyricsgenius
 import spotipy
@@ -19,7 +20,7 @@ class Functions:
     wavelink: wavelink
     random: random
     spotify: spotipy.Spotify
-    trending_uri: str | None
+    trending_uri: Optional[str]
     spot_exception: SpotifyException
     genius: lyricsgenius.Genius
 

@@ -1,6 +1,6 @@
 import random
 from time import gmtime, strftime
-from typing import Literal
+from typing import Literal, Optional
 
 import discord
 import lyricsgenius
@@ -26,10 +26,10 @@ class MusicHelper(Responses):
     genius: lyricsgenius.Genius
     err_color: Literal[16711680]
     sucess_color: Literal[3403400]
-    trending_uri: str | None
-    vote_url: str | None
-    invite_url: str | None
-    support_url: str | None
+    trending_uri: Optional[str]
+    vote_url: Optional[str]
+    invite_url: Optional[str]
+    support_url: Optional[str]
     strftime: strftime
     gmtime: gmtime
     random: random
