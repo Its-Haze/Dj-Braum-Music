@@ -7,6 +7,10 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
+from src.essentials.checks import (  # pylint:disable=import-error
+    in_same_channel,
+    member_in_voicechannel,
+)
 from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
 
 
@@ -16,14 +20,12 @@ class Music(commands.Cog):
         self.music = music
 
     @app_commands.command(name="join", description="Braum joins your voice channel.")
+    @in_same_channel()
+    @member_in_voicechannel()
     async def join(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-        elif (
+        if (
             not interaction.guild.voice_client
         ):  ## If user is in a VC and bot is not, join it.
             await interaction.user.voice.channel.connect(
@@ -31,21 +33,14 @@ class Music(commands.Cog):
             )
             return await interaction.followup.send(embed=await self.music.in_vc())
 
-        else:  ## If bot is already in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.already_in_vc()
-            )
 
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
+    @in_same_channel()
+    @member_in_voicechannel()
     async def leave(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif interaction.guild.voice_client:  ## If bot is in a VC, leave it.
+        if interaction.guild.voice_client:  ## If bot is in a VC, leave it.
             await interaction.guild.voice_client.disconnect()
             return await interaction.followup.send(embed=await self.music.left_vc())
 
@@ -57,15 +52,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="pause", description="Braum pauses the currently playing track."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def pause(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -98,15 +90,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="resume", description="Braum resumes the currently playing track."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def resume(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -139,15 +128,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="stop", description="Braum stops the currently playing track."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def stop(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -176,15 +162,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="skip", description="Braum skips the currently playing track."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def skip(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -211,12 +194,7 @@ class Music(commands.Cog):
     async def queue(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -235,15 +213,12 @@ class Music(commands.Cog):
             )  ## Show the queue.
 
     @app_commands.command(name="shuffle", description="Braum shuffles the queue.")
+    @in_same_channel()
+    @member_in_voicechannel()
     async def shuffle(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -286,14 +261,12 @@ class Music(commands.Cog):
         name="nowplaying", description="Braum shows you the currently playing song."
     )
     async def nowplaying(self, interaction: discord.Interaction):
+        """
+        Displays the currently playing song.
+        """
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -322,15 +295,13 @@ class Music(commands.Cog):
     @app_commands.describe(
         volume_percentage="The percentage to set the volume to. Accepted range: 0 to 100."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def volume(self, interaction: discord.Interaction, *, volume_percentage: int):
+        """Sets the volume %"""
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -362,15 +333,12 @@ class Music(commands.Cog):
     @app_commands.describe(
         track_index="The number of track to remove. Find out the track number using /queue."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def remove(self, interaction: discord.Interaction, *, track_index: int):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -403,15 +371,12 @@ class Music(commands.Cog):
     @app_commands.describe(
         track_index="The number of track to skip to. Find out the track number using /queue."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def skipto(self, interaction: discord.Interaction, *, track_index: int):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -440,15 +405,12 @@ class Music(commands.Cog):
                 )
 
     @app_commands.command(name="empty", description="Braum empties the queue.")
+    @in_same_channel()
+    @member_in_voicechannel()
     async def empty(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -479,15 +441,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="loop", description="Braum loops the currently playing track."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def loop(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -526,15 +485,12 @@ class Music(commands.Cog):
     @app_commands.command(
         name="queueloop", description="Braum loops the current queue."
     )
+    @in_same_channel()
+    @member_in_voicechannel()
     async def queueloop(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not await self.music.get_player(
+        if not await self.music.get_player(
             interaction.guild
         ) or not await self.music.get_track(
             interaction.guild
@@ -588,6 +544,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
     @app_commands.describe(spotify="Enter a spotify song Name, Link, Album, Playlist")
+    @in_same_channel()  # if member is in the same voice channel as the client.
+    @member_in_voicechannel()  # If member is connected to a voice channel.
     async def play(self, interaction: discord.Interaction, *, spotify: str):
         """
         Play command
@@ -596,12 +554,7 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not interaction.guild.voice_client:  ## If user is in a VC, join it.
+        if not interaction.guild.voice_client:  ## If user is in a VC, join it.
             vc: wavelink.Player = await interaction.user.voice.channel.connect(
                 cls=wavelink.Player, self_deaf=True
             )
@@ -629,11 +582,10 @@ class Music(commands.Cog):
         vc.reply = (
             interaction.channel
         )  ## Store the channel id to be used in track_start.
-        
 
         final_track = await self.music.gather_track_info(
-                track.title, track.author, track
-            )  ## Modify the track info.
+            track.title, track.author, track
+        )  ## Modify the track info.
 
         if vc.is_playing():  ## If a track is playing, add it to the queue.
             await interaction.followup.send(

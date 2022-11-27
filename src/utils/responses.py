@@ -11,7 +11,7 @@ from typing import Literal, Optional
 import discord as dpy
 import lyricsgenius
 import spotipy
-import wavelink
+import wavelink as wl
 from spotipy import SpotifyException
 
 from src.utils.functions import Functions  # pylint:disable=import-error
@@ -21,7 +21,7 @@ class Responses(Functions):  ## Contains various bot responses.
     """Holds methods for responding on interactions"""
 
     discord: dpy
-    wavelink: wavelink
+    wavelink: wl
     spotify: spotipy.Spotify
     spot_exception: SpotifyException
     genius: lyricsgenius.Genius
@@ -323,7 +323,8 @@ class Responses(Functions):  ## Contains various bot responses.
         No tracks in the queue.
         """
         embed = self.discord.Embed(
-            title="**There are no more tracks in the queue.**", color=self.err_color
+            title="**There are no more tracks in the queue.**",
+            color=self.discord.Colour.dark_purple,
         )
         return embed
 
@@ -656,5 +657,16 @@ class Responses(Functions):  ## Contains various bot responses.
         embed = dpy.Embed(
             title=f"**BRAUM HAS LEFT** -->, {guild.name}\nOwner was ``@{guild.owner.name}#{guild.owner.discriminator}``\nThis server had {guild.member_count} members!",
             color=dpy.Colour.green(),
+        )
+        return embed
+
+    async def already_in_voicechannel(self, channel: wl.player.VoiceChannel):
+        """
+        When the client is already connected to a voice channel.
+        """
+        embed = self.discord.Embed(
+            title="**Dj braum is already connected to a voice channel!**",
+            description=f"Join me here --> <#{channel.id}>",
+            color=self.err_color,
         )
         return embed
