@@ -34,6 +34,7 @@ class MusicHelper(Responses):
     gmtime: gmtime
     random: random
     url_regex: Literal
+    url_regex_https: Literal
 
     def __init__(self):
         self.env = EnvLoader.load_env()
@@ -70,6 +71,7 @@ class MusicHelper(Responses):
         self.gmtime = gmtime
         self.random = random
         self.url_regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+        self.url_regex_https = r"/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#()?&//=]*)/"
 
     def __await__(self):
         return self.async_init().__await__()

@@ -104,23 +104,23 @@ class Responses(Functions):  ## Contains various bot responses.
         Displays the current track.
         """
         player = await self.get_player(guild_id)  ## Retrieve the player.
-
+        
         if (
-            is_queued == False and player.loop == True
+            not is_queued and player.loop
         ):  ## If the track is not queued and the loop is enabled.
             embed = self.discord.Embed(
                 title="**Now Playing (Track Loop Enabled)**", color=self.sucess_color
             )
 
         elif (
-            is_queued == False and player.queue_loop == True
+            not is_queued and player.queue_loop
         ):  ## If the track is not queued and the queue loop is enabled.
             embed = self.discord.Embed(
                 title="**Now Playing (Queue Loop Enabled)**", color=self.sucess_color
             )
 
         elif (
-            is_queued == True and player.loop == True
+            is_queued and player.loop
         ):  ## If both the track is queued and the loop is enabled.
             embed = self.discord.Embed(
                 title="**Queued Track (Another Track Is Looping)**",
@@ -128,14 +128,14 @@ class Responses(Functions):  ## Contains various bot responses.
             )
 
         elif (
-            is_queued == True and player.queue_loop == True
+            is_queued and player.queue_loop
         ):  ## If both the track is queued and the queue loop is enabled.
             embed = self.discord.Embed(
                 title="**Queued Track (Queue Loop Enabled)**", color=self.sucess_color
             )
 
         elif (
-            is_queued == True and player.loop == False
+            is_queued and not player.loop
         ):  ## If the track is queued and the loop is not enabled.
             embed = self.discord.Embed(
                 title="**Queued Track**", color=self.sucess_color
@@ -341,16 +341,6 @@ class Responses(Functions):  ## Contains various bot responses.
         """
         embed = self.discord.Embed(
             title="**There needs to be 1 or more tracks in the queue!**",
-            color=self.err_color,
-        )
-        return embed
-
-    async def urls_not_supported(self):
-        """
-        When the url provided is not supported.
-        """
-        embed = self.discord.Embed(
-            title="**URL'S are not supported in /play. Use /url instead.**",
             color=self.err_color,
         )
         return embed

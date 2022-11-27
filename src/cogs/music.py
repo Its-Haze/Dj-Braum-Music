@@ -587,10 +587,13 @@ class Music(commands.Cog):
                 )
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
-    @app_commands.describe(
-        song_name="The name of the song to search for. Don't forget to include the artist's name as well!"
-    )
-    async def play(self, interaction: discord.Interaction, *, song_name: str):
+    @app_commands.describe(spotify="Enter a spotify song Name, Link, Album, Playlist")
+    async def play(self, interaction: discord.Interaction, *, spotify: str):
+        """
+        Play command
+        Accepts normal text querys
+        If link is found, it will run /url and validate spotify urls
+        """
         await interaction.response.defer()
 
         if not interaction.user.voice:  ## If user is not in a VC, respond.
@@ -602,22 +605,18 @@ class Music(commands.Cog):
             vc: wavelink.Player = await interaction.user.voice.channel.connect(
                 cls=wavelink.Player, self_deaf=True
             )
-
-        elif re.match(
-            self.music.url_regex, song_name
-        ):  ## If a URL is entered, respond.
-            return await interaction.followup.send(
-                embed=await self.music.urls_not_supported()
-            )
-
         else:
             vc: wavelink.Player = (
                 interaction.guild.voice_client
             )  ## Otherwise, initalize voice_client.
 
+        if re.match(self.music.url_regex, spotify):  ## If a URL is entered, respond.
+            # self.url validates that it is a valid spotify URL
+            return await self.url(interaction=interaction, spotify_url=spotify)
+
         try:
             track = await wavelink.YouTubeMusicTrack.search(
-                song_name, return_first=True
+                spotify, return_first=True
             )  ## Search for a song.
         except (
             IndexError,
@@ -630,12 +629,13 @@ class Music(commands.Cog):
         vc.reply = (
             interaction.channel
         )  ## Store the channel id to be used in track_start.
+        
 
-        if vc.is_playing():  ## If a track is playing, add it to the queue.
-            final_track = await self.music.gather_track_info(
+        final_track = await self.music.gather_track_info(
                 track.title, track.author, track
             )  ## Modify the track info.
 
+        if vc.is_playing():  ## If a track is playing, add it to the queue.
             await interaction.followup.send(
                 embed=await self.music.added_track(final_track)
             )  ## Use the modified track.
@@ -645,9 +645,6 @@ class Music(commands.Cog):
             )  ## Add the modified track to the queue.
 
         else:  ## Otherwise, begin playing.
-            final_track = await self.music.gather_track_info(
-                track.title, track.author, track
-            )  ## Modify the track info.
             msg = await interaction.followup.send(
                 embed=await self.music.started_playing()
             )  ## Send an ephemeral as now playing is handled by on_track_start.
@@ -665,26 +662,11 @@ class Music(commands.Cog):
                 msg.id
             )  ## Delete the message after 5 seconds.
 
-    @app_commands.command(
-        name="url",
-        description="Braum plays an album, playlist or track from a Spotify URL.",
-    )
-    @app_commands.describe(spotify_url="Any Spotify album, track or playlist URL.")
     async def url(self, interaction: discord.Interaction, *, spotify_url: str):
-        await interaction.response.defer()
-
-        if not interaction.user.voice:  ## If user is not in a VC, respond.
-            return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
-            )
-
-        elif not interaction.guild.voice_client:  ## If bot is not in a VC, respond.
-            await interaction.user.voice.channel.connect(
-                cls=wavelink.Player, self_deaf=True
-            )
-
-        else:  ## If bot is already in a VC, pass.
-            pass
+        """
+        Validates the URL to check for open.spotify links only
+        Adds the spotify song/album/playlist to the queue
+        """
 
         if (
             "https://open.spotify.com/playlist" in spotify_url
@@ -693,7 +675,9 @@ class Music(commands.Cog):
                 interaction.guild, spotify_url, interaction.channel, "playlist"
             )  ## Add the playlist to the queue.
 
-            if playlist != None:  ## If the playlist was added to the queue, respond.
+            if (
+                playlist is not None
+            ):  ## If the playlist was added to the queue, respond.
                 return await interaction.followup.send(
                     embed=await self.music.display_playlist(spotify_url)
                 )  ## Display playlist info.
@@ -709,7 +693,7 @@ class Music(commands.Cog):
                 interaction.guild, spotify_url, interaction.channel, "album"
             )  ## Add the album to the queue.
 
-            if album != None:  ## If the album was added to the queue, respond.
+            if album is not None:  ## If the album was added to the queue, respond.
                 return await interaction.followup.send(
                     embed=await self.music.display_album(spotify_url)
                 )  ## Display album info.
@@ -725,7 +709,7 @@ class Music(commands.Cog):
                 interaction.guild, spotify_url, interaction.channel
             )  ## Add the track to the queue, return tracks info.
 
-            if track != None:  ## If the track was added to the queue, respond.
+            if track is not None:  ## If the track was added to the queue, respond.
                 return await interaction.followup.send(
                     embed=await self.music.added_track(track)
                 )
