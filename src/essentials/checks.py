@@ -2,57 +2,50 @@ import discord
 import wavelink
 from discord import app_commands
 from discord.ext import commands
-from errors import (
-    MustBeInNsfwChannel,
-    MustBeSameChannel,
-    NotConnectedToVoice,
-    PlayerNotConnected,
-)
+
+from .errors import MustBeSameChannel, NotConnectedToVoice, PlayerNotConnected
 
 
-def voice_connected():
-    """If voice is connected"""
+def member_in_voicechannel():
+    """If member is connected to a voice chat"""
 
-    def predicate(ctx):
-        try:
-            ctx.author.voice.channel
-            return True
-        except AttributeError:
-            raise NotConnectedToVoice("You are not connected to any voice channel.")
+    async def predicate(interaction: discord.Interaction) -> bool:
 
-    return commands.check(predicate)
+        if not interaction.user.voice:  ## If user is not in a VC, respond.
+            raise NotConnectedToVoice("You are not connected to a voice channel!")
+        return True
+
+    return app_commands.check(predicate)
 
 
 def player_connected():
-    def predicate(ctx):
-        player: wavelink.Player = ctx.bot.wavelink.get_player(
-            ctx.guild.id, cls=wavelink.Player
+    async def predicate(interaction: discord.Interaction):
+        player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+            guild=interaction.guild
         )
 
         if not player.is_connected:
             raise PlayerNotConnected("Dj Braum is not connected to any voice channel.")
         return True
 
-    return commands.check(predicate)
+    return app_commands.check(predicate)
 
 
 def in_same_channel():
-    def predicate(ctx):
-        player: wavelink.Player = ctx.bot.wavelink.get_player(
-            ctx.guild.id, cls=wavelink.Player
+    async def predicate(interaction: discord.Interaction):
+        player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+            guild=interaction.guild
         )
-
-        if not player.is_connected:
-            raise PlayerNotConnected("Player is not connected to any voice channel.")
-
         try:
-            return player.channel_id == ctx.author.voice.channel.id
-        except:
-            raise MustBeSameChannel(
-                "Please join to the channel where bot is connected."
-            )
+            if player.channel.id != interaction.user.voice.channel.id:
+                raise MustBeSameChannel(
+                    "Please join to the channel where the bot is connected"
+                )
+        except AttributeError:
+            pass
+        return True
 
-    return commands.check(predicate)
+    return app_commands.check(predicate)
 
 
 def in_nsfw_channel():

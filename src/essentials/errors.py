@@ -1,5 +1,5 @@
+from discord.app_commands import CheckFailure
 from discord.ext import commands
-from discord.ext.commands.errors import CheckFailure
 
 
 class NotConnectedToVoice(CheckFailure):
