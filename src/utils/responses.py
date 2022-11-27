@@ -6,7 +6,9 @@ import random
 from time import gmtime, strftime
 from typing import Literal, Optional
 
-import discord
+# Need to do this to separate the Response.discord attribute with the module itslf.
+# Otherwise, the @staticmethod won't get type hints.
+import discord as dpy
 import lyricsgenius
 import spotipy
 import wavelink
@@ -18,7 +20,7 @@ from src.utils.functions import Functions  # pylint:disable=import-error
 class Responses(Functions):  ## Contains various bot responses.
     """Holds methods for responding on interactions"""
 
-    discord: discord
+    discord: dpy
     wavelink: wavelink
     spotify: spotipy.Spotify
     spot_exception: SpotifyException
@@ -104,7 +106,7 @@ class Responses(Functions):  ## Contains various bot responses.
         Displays the current track.
         """
         player = await self.get_player(guild_id)  ## Retrieve the player.
-        
+
         if (
             not is_queued and player.loop
         ):  ## If the track is not queued and the loop is enabled.
@@ -312,7 +314,7 @@ class Responses(Functions):  ## Contains various bot responses.
         When the track is not in a queue.
         """
         embed = self.discord.Embed(
-            title=f"**Invalid track number.**", color=self.err_color
+            title="**Invalid track number.**", color=self.err_color
         )
         return embed
 
@@ -632,5 +634,27 @@ class Responses(Functions):  ## Contains various bot responses.
         embed = self.discord.Embed(
             title=f"**{track_info.title} - {track_info.author} has already been resumed!**",
             color=self.err_color,
+        )
+        return embed
+
+    @staticmethod
+    async def on_joining_guild(guild: dpy.Guild):
+        """
+        Embed for when braum joins a server.
+        """
+        embed = dpy.Embed(
+            title=f"**BRAUM HAS JOINED** -->, {guild.name}\nOwner is ``@{guild.owner.name}#{guild.owner.discriminator}``\nThis server has {guild.member_count} members!",
+            color=dpy.Colour.green(),
+        )
+        return embed
+
+    @staticmethod
+    async def on_leaving_guild(guild: dpy.Guild):
+        """
+        Embed for when braum leaves a server.
+        """
+        embed = dpy.Embed(
+            title=f"**BRAUM HAS LEFT** -->, {guild.name}\nOwner was ``@{guild.owner.name}#{guild.owner.discriminator}``\nThis server had {guild.member_count} members!",
+            color=dpy.Colour.green(),
         )
         return embed

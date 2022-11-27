@@ -9,6 +9,7 @@ from discord.ext import commands
 from logs import settings
 from src.credentials.loader import EnvLoader
 from src.utils.cogs_loader import cog_loader
+from src.utils.music_helper import MusicHelper
 
 env_loader = EnvLoader.load_env()
 logger = settings.logging.getLogger("bot")
@@ -77,16 +78,29 @@ async def on_ready():
 
 
 @client.event
-async def on_guild_join(guild):
+async def on_guild_join(guild: discord.Guild):
     """When braum joins a guild it adds that guild and a default server prefix to database"""
     join_msg = (
         "I Am Braum!, Your Personal Support!!\n\n"
         "To start playing music, just use my slash commands!\n"
-        "/play | Braum plays your desired song!"
-        "/url | Braum plays a spofity song!"
+        "``/play`` | Accepts song title's, spotify links (Songs, Albums, Artists)\n"
+        "``/queue`` | Shows all the songs that are in queue\n"
+        "``/remove`` | Removes a song from the queue based on their position (run /queue first)\n"
+        "``/empty`` | Removes all songs from the queue\n"
+        "``/loop`` | Loops the current playing song\n"
+        "``/queueloop`` | Loops the whole queue\n"
+        "``/shuffle`` | Shuffles the queue\n\n"
+        "There are many more commands to choose from..\nType ``/`` and select Dj Braum to list all of my commands"
     )
-    print("---" * 40)
-    print("BRAUM HAS JOINED  -->", guild.name)
+
+    # Logs that braum has joined a Guild
+    logging_channel = client.get_channel(
+        int(env_loader.logging_id)
+    )  ## Retrieve the logging channel.
+    await logging_channel.send(
+        embed=await MusicHelper.on_joining_guild(guild=guild)
+    )  ## Send the log embed.
+
     if (
         guild.system_channel
         and guild.system_channel.permissions_for(guild.me).send_messages
@@ -127,10 +141,16 @@ async def on_guild_remove(guild: discord.Guild):
     leave_msg = (
         "I am sorry, but i have to roam to another lane now..\n"
         "It was nice supporting you ❤️\n\n"
-        "If you ever need me again, you know where to find me"
+        "If you ever need me again, click on my profile and select ``Add to server``"
     )
-    print("---" * 40)
-    print("BRAUM HAS LEFT  -->", guild.name)
+
+    # Logs that braum has left a Guild
+    logging_channel = client.get_channel(
+        int(env_loader.logging_id)
+    )  ## Retrieve the logging channel.
+    await logging_channel.send(
+        embed=await MusicHelper.on_leaving_guild(guild=guild)
+    )  ## Send the log embed.
 
     try:
         await guild.owner.send(leave_msg)
@@ -161,9 +181,9 @@ async def on_voice_state_update(
         elif before.channel and after.channel is None:
             # When the bot is disconnected from a voice channel
             try:
-                await member.guild.voice_client.disconnect()
-            except:
-                raise
+                await player.disconnect()
+            except AttributeError:
+                pass
                 # Fixme: raise error if player could not be disconnected
         else:
             pass

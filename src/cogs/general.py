@@ -48,16 +48,20 @@ class General(commands.Cog):
             embed=await self.music.display_trending(await self.music.get_trending())
         )  ## Display the new releases embed.
 
-    # FIXME: Enable this when top.gg has approved DJ braum
-    # @app_commands.command(name="vote", description="Vote for Braum to help grow the bot!")
-    # async def vote(self, interaction: discord.Interaction):
-    #     await interaction.response.defer()
+    @app_commands.command(
+        name="vote", description="Vote for Braum to help grow the bot!"
+    )
+    async def vote(self, interaction: discord.Interaction):
+        """
+        Vote command for top.gg
+        """
+        await interaction.response.defer()
 
-    #     embed, view = await self.music.display_vote()
+        embed, view = await self.music.display_vote()
 
-    #     return await interaction.followup.send(
-    #         embed=embed, view=view
-    #     )  ## Display the vote embed.
+        return await interaction.followup.send(
+            embed=embed, view=view
+        )  ## Display the vote embed.
 
     @app_commands.command(name="support", description="Join my support server!")
     async def support(self, interaction: discord.Interaction):
