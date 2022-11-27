@@ -138,6 +138,40 @@ async def on_guild_remove(guild: discord.Guild):
         print(f"Guild owner has disabled DM's\n{exc_forbidden}")
 
 
+@client.event
+async def on_voice_state_update(
+    member: discord.member.Member,
+    before: discord.member.VoiceState,
+    after: discord.member.VoiceState,
+):
+    """
+    Triggers when the voicestate of the client changes
+    - Joins a voice channel
+    - Leaves a voice channel
+    - When voice state updates.
+    """
+    player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+        guild=member.guild
+    )
+    if member.id == client.user.id:
+        if before.channel is None and after.channel is not None:
+            pass
+            # When the bot connects to a voice channel
+            # Fixme: add more code if needed.
+        elif before.channel and after.channel is None:
+            # When the bot is disconnected from a voice channel
+            try:
+                await player.disconnect()
+                await member.guild.voice_client.disconnect()
+            except:
+                raise
+                # Fixme: raise error if player could not be disconnected
+        else:
+            pass
+            # Bot state stays the same
+            # Fixme: add code if needed for when voice state stays the same.
+
+
 async def main():
     """main function"""
 
