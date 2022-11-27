@@ -161,7 +161,6 @@ async def on_voice_state_update(
         elif before.channel and after.channel is None:
             # When the bot is disconnected from a voice channel
             try:
-                await player.disconnect()
                 await member.guild.voice_client.disconnect()
             except:
                 raise
