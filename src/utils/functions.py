@@ -1,10 +1,8 @@
 import random
-from abc import ABC, abstractmethod
 from time import gmtime, strftime
 from typing import Optional
 
 import lyricsgenius
-import rich
 import spotipy
 import wavelink
 from spotipy import SpotifyException
