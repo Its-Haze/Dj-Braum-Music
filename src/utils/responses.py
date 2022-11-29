@@ -324,7 +324,7 @@ class Responses(Functions):  ## Contains various bot responses.
         """
         embed = self.discord.Embed(
             title="**There are no more tracks in the queue.**",
-            color=self.discord.Colour.dark_purple,
+            color=self.discord.Colour.dark_purple(),
         )
         return embed
 
