@@ -1,5 +1,4 @@
 import random
-from abc import ABC, abstractmethod
 from time import gmtime, strftime
 from typing import Optional
 
@@ -274,11 +273,11 @@ class Functions:
         except (AttributeError, IndexError):  ## If no lyrics were found.
             return "No lyrics found!"
 
-    async def search_songs(self, search_query: str):
+    async def search_songs(self, search_query: str, limit: int = 10):
         """
         Returns 10 results from spotify.
         """
-        search_results = self.spotify.search(q=f"{search_query}", limit=10)
+        search_results = self.spotify.search(q=f"{search_query}", limit=limit)
         return search_results
 
     async def format_search_results(self, search_results):
@@ -291,3 +290,27 @@ class Functions:
                 for i, track in enumerate(search_results["tracks"]["items"], start=1)
             ]
         )
+
+    async def format_query_search_results(self, search_results: dict) -> list[dict]:
+        """
+        Returns the data in a Title:Album:Artist format.
+        """
+        return [
+            {
+                "id": song["id"],
+                "song_name": song["name"],
+                "artists": " & ".join([f["name"] for f in song["artists"]]),
+                "uri": song["uri"],
+                "duration": song["duration_ms"],
+                "popularity": song["popularity"],
+                "external_url": song["external_urls"]["spotify"],
+            }
+            for song in search_results.get("tracks").get("items")
+        ]
+
+    @staticmethod
+    def convert_ms(milliseconds: int) -> str:
+        """Returns milliseconds in minutes and seconds"""
+        seconds = milliseconds // 1000
+        mm, ss = divmod(seconds, 60)
+        return f"{mm}:{ss if ss >9 else f'0{ss}'}"

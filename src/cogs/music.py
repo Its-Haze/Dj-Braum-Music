@@ -3,6 +3,7 @@ import asyncio
 import re
 
 import discord
+import spotipy
 import wavelink
 from discord import app_commands
 from discord.ext import commands
@@ -32,7 +33,6 @@ class Music(commands.Cog):
                 cls=wavelink.Player, self_deaf=True
             )
             return await interaction.followup.send(embed=await self.music.in_vc())
-
 
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
     @in_same_channel()
@@ -682,6 +682,31 @@ class Music(commands.Cog):
             return await interaction.followup.send(
                 embed=await self.music.only_spotify_urls()
             )
+
+    @play.autocomplete("spotify")
+    async def autocomplete_callback(
+        self,
+        interaction: discord.Interaction,
+        current: str,  # pylint:disable=unused-argument
+    ):
+        """
+        Auto suggestion for queryng spotify
+        clickable options appear and spotify link the linked value
+        """
+        if current != "":
+            query_searched = await self.music.search_songs(current, limit=5)
+
+            formatted_result = await self.music.format_query_search_results(
+                query_searched
+            )
+
+            return [
+                app_commands.Choice(
+                    name=f"{song['song_name']} - {song['artists']} - {self.music.convert_ms(song['duration'])}",
+                    value=song["external_url"],  # This is a spotify track link.
+                )
+                for song in formatted_result
+            ]
 
 
 async def setup(bot):
