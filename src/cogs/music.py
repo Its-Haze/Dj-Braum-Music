@@ -15,7 +15,7 @@ from src.essentials.checks import (  # pylint:disable=import-error
     member_in_voicechannel,
 )
 from src.utils.music_helper import MusicHelper
-from utils.spotify_models import SpotifyAlbum, SpotifyTrack
+from src.utils.spotify_models import SpotifyAlbum, SpotifyTrack
 
 logger = settings.logging.getLogger(__name__)
 
@@ -750,10 +750,10 @@ class Music(commands.Cog):
             return my_tracks
 
         elif category == "album":
-            formatted_album_results = (
-                await self.music.format_query_search_results_album(
-                    search_results=query_searched, limit=limit
-                )
+            formatted_album_results: list[
+                SpotifyAlbum
+            ] = await self.music.format_query_search_results_album(
+                search_results=query_searched, limit=limit
             )
             my_albums = []
             for album in formatted_album_results:

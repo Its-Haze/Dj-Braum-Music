@@ -15,4 +15,4 @@ async def cog_loader(client: commands.Bot):
     for filename in os.listdir("./src/cogs"):
         if filename.endswith(".py"):
             await client.load_extension(f"src.cogs.{filename[:-3]}")
-            print(f"Loaded src.cogs.{filename[:-3]}")
+            logger.info(f"Loaded src.cogs.{filename[:-3]}")

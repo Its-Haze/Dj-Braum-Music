@@ -64,7 +64,7 @@ async def on_ready():
 
     ## Create task to connect to the lavalink server.
     client.loop.create_task(connect_nodes())
-    print(
+    logger.info(
         f"{'~~~' * 30}\n{client.user} is online in {len(client.guilds)} servers, and is ready to play music\n{'~~~' * 30}"
     )
 
@@ -113,7 +113,7 @@ async def on_guild_join(guild: discord.Guild):
                     f"Thanks for inviting Braum.\n\nIt seems like I can't send messages in {guild.name}.\nPlease give permissions to send messages in text channels.\nOtherwise i am kinda useless :(\n\n\nWhen i have permission to send messages in text channels, try to use the ``!help`` command to see what i can do :)."
                 )
             except discord.Forbidden:
-                print("Guild owner has disabled DM's" * 10)
+                logger.error("Guild owner has disabled DM's" * 10)
         else:
             valid_channels = [
                 channel
@@ -150,7 +150,7 @@ async def on_guild_remove(guild: discord.Guild):
     try:
         await guild.owner.send(leave_msg)
     except discord.Forbidden as exc_forbidden:
-        print(f"Guild owner has disabled DM's\n{exc_forbidden}")
+        logger.error(f"Guild owner has disabled DM's\n{exc_forbidden}")
 
 
 @client.event
