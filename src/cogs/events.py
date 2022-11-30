@@ -6,6 +6,8 @@ from logs import settings  # pylint:disable=import-error
 from src.credentials.loader import EnvLoader  # pylint:disable=import-error
 from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
 
+logger = settings.logging.getLogger(__name__)
+
 
 class MusicEvents(commands.Cog):
     """

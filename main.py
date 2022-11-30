@@ -1,6 +1,7 @@
 """Main file to run the Bot from."""
 import asyncio
 import logging.handlers
+import typing
 
 import discord
 import wavelink
@@ -25,7 +26,6 @@ client = commands.Bot(
         name="music | /play",
     ),
 )
-
 
 ## Slash commands.
 # slash = app_commands.CommandTree(client)
@@ -61,14 +61,9 @@ async def connect_nodes():
 @client.event
 async def on_ready():
     """This event runs when the bot is connected and ready to be used."""
-    ## Sync slash comands.
-    await client.tree.sync()
 
     ## Create task to connect to the lavalink server.
     client.loop.create_task(connect_nodes())
-    logger.info(
-        f"User {client.user} is Online in {len(client.guilds)} servers, and it ready to play music!!"
-    )
     print(
         f"{'~~~' * 30}\n{client.user} is online in {len(client.guilds)} servers, and is ready to play music\n{'~~~' * 30}"
     )
@@ -189,6 +184,55 @@ async def on_voice_state_update(
             pass
             # Bot state stays the same
             # Fixme: add code if needed for when voice state stays the same.
+
+
+## Sync slash comands.
+@client.command()
+@commands.guild_only()
+@commands.is_owner()
+async def sync(
+    ctx: commands.Context,
+    guilds: commands.Greedy[discord.Object],
+    spec: typing.Optional[typing.Literal["~", "*", "^"]] = None,
+) -> None:
+    """
+    A normal client.command for syncing app_commands.tree
+
+    Works like:
+    !sync -> global sync
+    !sync ~ -> sync current guild
+    !sync * -> copies all global app commands to current guild and syncs
+    !sync ^ -> clears all commands from the current guild target and syncs (removes guild commands)
+    !sync id_1 id_2 -> syncs guilds with id 1 and 2
+    """
+    if not guilds:
+        if spec == "~":
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "*":
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "^":
+            ctx.bot.tree.clear_commands(guild=ctx.guild)
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            synced = []
+        else:
+            synced = await ctx.bot.tree.sync()
+
+        await ctx.send(
+            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+        )
+        return
+
+    ret = 0
+    for guild in guilds:
+        try:
+            await ctx.bot.tree.sync(guild=guild)
+        except discord.HTTPException:
+            pass
+        else:
+            ret += 1
+
+    await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
 
 
 async def main():

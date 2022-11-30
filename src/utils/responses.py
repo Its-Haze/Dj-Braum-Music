@@ -14,8 +14,10 @@ import spotipy
 import wavelink as wl
 from spotipy import SpotifyException
 
+from logs import settings  # pylint:disable=import-error
 from src.utils.functions import Functions  # pylint:disable=import-error
 
+logger = settings.logging.getLogger(__name__)
 
 class Responses(Functions):  ## Contains various bot responses.
     """Holds methods for responding on interactions"""

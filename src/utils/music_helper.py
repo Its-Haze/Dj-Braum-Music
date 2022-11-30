@@ -8,8 +8,11 @@ import spotipy
 import wavelink
 from spotipy import Spotify, SpotifyClientCredentials, SpotifyException
 
+from logs import settings # pylint:disable=import-error
 from src.credentials.loader import EnvLoader
 from src.utils.responses import Responses
+
+logger = settings.logging.getLogger(__name__)
 
 
 class MusicHelper(Responses):

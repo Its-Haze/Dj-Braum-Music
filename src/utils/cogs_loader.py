@@ -5,6 +5,10 @@ import os
 
 from discord.ext import commands
 
+from logs import settings  # pylint:disable=import-error
+
+logger = settings.logging.getLogger(__name__)
+
 
 async def cog_loader(client: commands.Bot):
     """unloads all cogs."""
