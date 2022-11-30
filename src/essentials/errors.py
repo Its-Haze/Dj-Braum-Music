@@ -1,6 +1,10 @@
 from discord.app_commands import CheckFailure
 from discord.ext import commands
 
+from logs import settings  # pylint:disable=import-error
+
+logger = settings.logging.getLogger(__name__)
+
 
 class NotConnectedToVoice(CheckFailure):
     """User not connected to any voice channel"""

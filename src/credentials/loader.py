@@ -6,6 +6,9 @@ from typing import Optional
 import dotenv
 
 dotenv.load_dotenv(dotenv_path="src/credentials/.env")  ## Load enviroment variables.
+from logs import settings  # pylint:disable=import-error
+
+logger = settings.logging.getLogger(__name__)
 
 
 @dataclass

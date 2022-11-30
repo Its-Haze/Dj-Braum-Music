@@ -4,7 +4,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from logs import settings  # pylint:disable=import-error
 from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
+
+logger = settings.logging.getLogger(__name__)
 
 
 class General(commands.Cog):

@@ -3,7 +3,11 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
+from logs import settings  # pylint:disable=import-error
+
 from .errors import MustBeSameChannel, NotConnectedToVoice, PlayerNotConnected
+
+logger = settings.logging.getLogger(__name__)
 
 
 def member_in_voicechannel():

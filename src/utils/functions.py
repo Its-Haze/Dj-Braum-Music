@@ -5,7 +5,16 @@ from typing import Optional
 import lyricsgenius
 import spotipy
 import wavelink
+from discord import app_commands
 from spotipy import SpotifyException
+
+from logs import settings  # pylint:disable=import-error
+from src.utils.spotify_models import (  # pylint:disable=import-error
+    SpotifyAlbum,
+    SpotifyTrack,
+)
+
+logger = settings.logging.getLogger(__name__)
 
 
 class Functions:
@@ -273,11 +282,16 @@ class Functions:
         except (AttributeError, IndexError):  ## If no lyrics were found.
             return "No lyrics found!"
 
-    async def search_songs(self, search_query: str, limit: int = 10):
+    async def search_songs(
+        self, search_query: str, category: str = "track", limit: int = 10
+    ):
         """
         Returns 10 results from spotify.
         """
-        search_results = self.spotify.search(q=f"{search_query}", limit=limit)
+
+        search_results = self.spotify.search(
+            q=f"{search_query}", limit=limit, type=category
+        )
         return search_results
 
     async def format_search_results(self, search_results):
@@ -291,25 +305,43 @@ class Functions:
             ]
         )
 
-    async def format_query_search_results(self, search_results: dict) -> list[dict]:
+    async def format_query_search_results_track(
+        self,
+        search_results: dict,
+        limit: int = 5,
+    ) -> list[SpotifyTrack]:
         """
-        Returns the data in a Title:Album:Artist format.
+        Returns a list of Spotify Tracks
         """
-        return [
-            {
-                "id": song["id"],
-                "song_name": song["name"],
-                "artists": " & ".join([f["name"] for f in song["artists"]]),
-                "uri": song["uri"],
-                "duration": song["duration_ms"],
-                "popularity": song["popularity"],
-                "external_url": song["external_urls"]["spotify"],
-            }
-            for song in search_results.get("tracks").get("items")
-        ]
+        formatted_and_sorted_tracks = SpotifyTrack.from_search_results(
+            search_result=search_results.get("tracks").get("items")[:limit],
+        )
 
-    @staticmethod
-    def convert_ms(milliseconds: int) -> str:
+        return sorted(
+            formatted_and_sorted_tracks,
+            key=lambda fl: fl.popularity,
+            reverse=True,
+        )
+
+    async def format_query_search_results_album(
+        self,
+        search_results: dict,
+        limit: int = 5,
+    ) -> list[SpotifyAlbum]:
+        """
+        Returns a list of Spotify Albums
+        """
+        formatted_and_sorted_albums = SpotifyAlbum.from_search_results(
+            search_result=search_results.get("albums").get("items")[:limit],
+        )
+
+        return sorted(
+            formatted_and_sorted_albums,
+            key=lambda fl: fl.total_tracks,
+            reverse=True,
+        )
+
+    def convert_ms(self, milliseconds: int) -> str:
         """Returns milliseconds in minutes and seconds"""
         seconds = milliseconds // 1000
         mm, ss = divmod(seconds, 60)

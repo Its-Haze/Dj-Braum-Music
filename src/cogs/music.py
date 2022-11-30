@@ -1,6 +1,7 @@
 """Discord Cog for all Music commands"""
 import asyncio
 import re
+from typing import Optional, Union
 
 import discord
 import spotipy
@@ -8,11 +9,15 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
+from logs import settings  # pylint:disable=import-error
 from src.essentials.checks import (  # pylint:disable=import-error
     in_same_channel,
     member_in_voicechannel,
 )
-from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
+from src.utils.music_helper import MusicHelper
+from utils.spotify_models import SpotifyAlbum, SpotifyTrack
+
+logger = settings.logging.getLogger(__name__)
 
 
 class Music(commands.Cog):
@@ -543,10 +548,25 @@ class Music(commands.Cog):
                 )
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
-    @app_commands.describe(spotify="Enter a spotify song Name, Link, Album, Playlist")
+    @app_commands.describe(
+        category="Select a category for your search! | Track, Album, Spotify_Link",
+        search="Enter your spotify search here! / You can also enter a Spotify URL here",
+    )
+    @app_commands.choices(
+        category=[
+            app_commands.Choice(name="Track", value="track"),
+            app_commands.Choice(name="Album", value="album"),
+        ]
+    )
     @in_same_channel()  # if member is in the same voice channel as the client.
     @member_in_voicechannel()  # If member is connected to a voice channel.
-    async def play(self, interaction: discord.Interaction, *, spotify: str):
+    async def play(
+        self,
+        interaction: discord.Interaction,
+        *,
+        category: discord.app_commands.Choice[str],
+        search: str,
+    ):
         """
         Play command
         Accepts normal text querys
@@ -563,13 +583,13 @@ class Music(commands.Cog):
                 interaction.guild.voice_client
             )  ## Otherwise, initalize voice_client.
 
-        if re.match(self.music.url_regex, spotify):  ## If a URL is entered, respond.
+        if re.match(self.music.url_regex, search):  ## If a URL is entered, respond.
             # self.url validates that it is a valid spotify URL
-            return await self.url(interaction=interaction, spotify_url=spotify)
+            return await self.url(interaction=interaction, spotify_url=search)
 
         try:
             track = await wavelink.YouTubeMusicTrack.search(
-                spotify, return_first=True
+                search, return_first=True
             )  ## Search for a song.
         except (
             IndexError,
@@ -619,7 +639,6 @@ class Music(commands.Cog):
         Validates the URL to check for open.spotify links only
         Adds the spotify song/album/playlist to the queue
         """
-
         if (
             "https://open.spotify.com/playlist" in spotify_url
         ):  ## If a spotify playlist url is entered.
@@ -683,30 +702,72 @@ class Music(commands.Cog):
                 embed=await self.music.only_spotify_urls()
             )
 
-    @play.autocomplete("spotify")
-    async def autocomplete_callback(
+    @play.autocomplete("search")
+    async def play_autocomplete(
         self,
         interaction: discord.Interaction,
         current: str,  # pylint:disable=unused-argument
-    ):
+    ) -> list[app_commands.Choice[str]]:
         """
         Auto suggestion for queryng spotify
         clickable options appear and spotify link the linked value
         """
-        if current != "":
-            query_searched = await self.music.search_songs(current, limit=5)
-
-            formatted_result = await self.music.format_query_search_results(
-                query_searched
+        limit = 5
+        category = interaction.namespace.category
+        not_found_choice = [
+            app_commands.Choice(
+                name="The only song you should listen to!",
+                value="https://open.spotify.com/track/6ctO0maVSlFzn31wR0GpNg",
             )
+        ]
 
-            return [
-                app_commands.Choice(
-                    name=f"{song['song_name']} - {song['artists']} - {self.music.convert_ms(song['duration'])}",
-                    value=song["external_url"],  # This is a spotify track link.
+        if current.strip() == "":
+            return not_found_choice
+
+        query_searched = await self.music.search_songs(
+            current.lower(),
+            category=category,
+            limit=limit,
+        )
+        if category == "track":
+            formatted_track_results: list[
+                SpotifyTrack
+            ] = await self.music.format_query_search_results_track(
+                search_results=query_searched, limit=limit
+            )
+            my_tracks = []
+
+            for song in formatted_track_results:
+                long_name = f"{song.name} - {song.artists} - {self.music.convert_ms(song.duration_ms)}"
+                short_name = f"{song.name} - {self.music.convert_ms(song.duration_ms)}"
+
+                my_tracks.append(
+                    app_commands.Choice(
+                        name=long_name if len(long_name) < 100 else short_name,
+                        value=song.external_urls,
+                    )
                 )
-                for song in formatted_result
-            ]
+            return my_tracks
+
+        elif category == "album":
+            formatted_album_results = (
+                await self.music.format_query_search_results_album(
+                    search_results=query_searched, limit=limit
+                )
+            )
+            my_albums = []
+            for album in formatted_album_results:
+                long_name = (
+                    f"{album.name} - {album.artists} - tracks: {album.total_tracks}"
+                )
+                short_name = f"{album.name} - tracks: {album.total_tracks}"
+                my_albums.append(
+                    app_commands.Choice(
+                        name=long_name if len(long_name) < 100 else short_name,
+                        value=album.external_urls,
+                    )
+                )
+            return my_albums
 
 
 async def setup(bot):

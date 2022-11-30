@@ -13,6 +13,8 @@ from src.essentials.errors import (  # pylint:disable=import-error
 )
 from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
 
+logger = settings.logging.getLogger(__name__)
+
 
 class ErrorHandler(commands.Cog):
     """
