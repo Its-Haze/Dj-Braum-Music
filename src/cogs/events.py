@@ -28,7 +28,6 @@ class MusicEvents(commands.Cog):
     async def on_wavelink_node_ready(
         self, node: wavelink.Node
     ):  ## Fires when the lavalink server is connected
-        logger.info(f"Node: <{node.identifier}> is ready!")
         print(f"Node: <{node.identifier}> is ready!")
 
     @commands.Cog.listener()
