@@ -172,7 +172,7 @@ async def on_voice_state_update(
         if before.channel is None and after.channel is not None:
             pass
             # When the bot connects to a voice channel
-            # Fixme: add more code if needed.
+            # FIXME: add more code if needed.
         elif before.channel and after.channel is None:
             # When the bot is disconnected from a voice channel
             try:
@@ -184,6 +184,26 @@ async def on_voice_state_update(
             pass
             # Bot state stays the same
             # Fixme: add code if needed for when voice state stays the same.
+    else:
+        # If someone else joined/left
+        if before.channel is None and after.channel is not None:
+            # When someone connects to the voice channel
+            # FIXME: Add code when needed.
+            pass
+        elif before.channel and after.channel is None:
+            # When someone disconnects to the voice channel.
+            # FIXME: Add code when need.
+
+            if all(
+            member.bot for member in player.channel.members
+            ):  # If there are no members in the vc, leave.
+                player.queue.clear()  # Clear the queue.
+                await player.stop()  # Stop the currently playing track.
+                await player.disconnect()  # Leave the VC.
+        else:
+            # When the members state stays the same.
+            # FIXME: Add code when needed.
+            pass
 
 
 ## Sync slash comands.

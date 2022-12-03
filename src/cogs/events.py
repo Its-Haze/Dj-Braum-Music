@@ -36,15 +36,17 @@ class MusicEvents(commands.Cog):
     ):  ## Fires when a track ends.
         ctx = player.reply  ## Retrieve the guild's channel id.
 
-        if all(
-            member.bot for member in player.channel.members
-        ):  ## If there are no members in the vc, leave.
-            player.queue.clear()  ## Clear the queue.
-            await player.stop()  ## Stop the currently playing track.
-            await player.disconnect()  ## Leave the VC.
-            await ctx.send(embed=await self.music.left_due_to_inactivity())
+        # MOVED TO "VOICE_STATE_UPDATE"
 
-        elif (
+        # if all(
+        #     member.bot for member in player.channel.members
+        # ):  ## If there are no members in the vc, leave.
+        #     player.queue.clear()  ## Clear the queue.
+        #     await player.stop()  ## Stop the currently playing track.
+        #     await player.disconnect()  ## Leave the VC.
+        #     await ctx.send(embed=await self.music.left_due_to_inactivity())
+
+        if (
             not player.queue.is_empty and not player.loop and not player.queue_loop
         ):  ## If the queue is not empty and the loop is disabled, play the next track.
             next_track = await player.queue.get_wait()  ## Retrieve the queue.
