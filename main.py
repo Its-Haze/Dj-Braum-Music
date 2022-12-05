@@ -64,8 +64,13 @@ async def on_ready():
 
     ## Create task to connect to the lavalink server.
     client.loop.create_task(connect_nodes())
+    lines = "~~~" * 30
     logger.info(
-        f"{'~~~' * 30}\n{client.user} is online in {len(client.guilds)} servers, and is ready to play music\n{'~~~' * 30}"
+        "\n%s\n%s is online in %s servers, and is ready to play music\n%s",
+        lines,
+        client.user,
+        len(client.guilds),
+        lines,
     )
 
     ## Start the update status loop.
@@ -85,7 +90,8 @@ async def on_guild_join(guild: discord.Guild):
         "``/loop`` | Loops the current playing song\n"
         "``/queueloop`` | Loops the whole queue\n"
         "``/shuffle`` | Shuffles the queue\n\n"
-        "There are many more commands to choose from..\nType ``/`` and select Dj Braum to list all of my commands"
+        "There are many more commands to choose from..\n"
+        "Type ``/`` and select Dj Braum to list all of my commands"
     )
 
     # Logs that braum has joined a Guild
@@ -110,7 +116,12 @@ async def on_guild_join(guild: discord.Guild):
         if len(all_channels) == 0:
             try:
                 await guild.owner.send(
-                    f"Thanks for inviting Braum.\n\nIt seems like I can't send messages in {guild.name}.\nPlease give permissions to send messages in text channels.\nOtherwise i am kinda useless :(\n\n\nWhen i have permission to send messages in text channels, try to use the ``!help`` command to see what i can do :)."
+                    "Thanks for inviting Braum.\n\n"
+                    f"It seems like I can't send messages in {guild.name}.\n"
+                    "Please give permissions to send messages in text channels.\n"
+                    "Otherwise i am kinda useless :(\n\n\n"
+                    "When i have permission to send messages in text channels, "
+                    "try to use the ``!help`` command to see what i can do :)."
                 )
             except discord.Forbidden:
                 logger.error("Guild owner has disabled DM's" * 10)
@@ -149,8 +160,8 @@ async def on_guild_remove(guild: discord.Guild):
 
     try:
         await guild.owner.send(leave_msg)
-    except discord.Forbidden as exc_forbidden:
-        logger.error(f"Guild owner has disabled DM's\n{exc_forbidden}")
+    except discord.Forbidden:
+        logger.exception("Guild owner has disabled DM's")
 
 
 @client.event
@@ -165,44 +176,52 @@ async def on_voice_state_update(
     - Leaves a voice channel
     - When voice state updates.
     """
-    player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-        guild=member.guild
-    )
     if member.id == client.user.id:
-        if before.channel is None and after.channel is not None:
+        if before.channel and after.channel is None:
+            # When the bot is disconnected from a voice channel
+            player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+                guild=member.guild
+            )
+            if player is not None:
+                try:
+                    await player.disconnect()
+                except AttributeError as error:
+                    logger.error(
+                        "Player was unable to be disconnected when kicked out of a channel"
+                    )
+                    raise error
+        elif before.channel is None and after.channel is not None:
             pass
             # When the bot connects to a voice channel
-            # FIXME: add more code if needed.
-        elif before.channel and after.channel is None:
-            # When the bot is disconnected from a voice channel
-            try:
-                await player.disconnect()
-            except AttributeError:
-                pass
-                # Fixme: raise error if player could not be disconnected
         else:
             pass
             # Bot state stays the same
-            # Fixme: add code if needed for when voice state stays the same.
     else:
         # If someone else joined/left
-        if before.channel is None and after.channel is not None:
-            # When someone connects to the voice channel
-            # FIXME: Add code when needed.
-            pass
-        elif before.channel and after.channel is None:
+        if before.channel and after.channel is None:
             # When someone disconnects to the voice channel.
-            # FIXME: Add code when need.
+            player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+                guild=member.guild
+            )
+            if player is None:
+                # If the player is not connected to any channel.
+                return
 
+            if player.channel.id != before.channel.id:
+                # if the player is connected to another voice channel.
+                return
             if all(
-            member.bot for member in player.channel.members
+                member.bot for member in player.channel.members
             ):  # If there are no members in the vc, leave.
                 player.queue.clear()  # Clear the queue.
                 await player.stop()  # Stop the currently playing track.
                 await player.disconnect()  # Leave the VC.
+
+        elif before.channel is None and after.channel is not None:
+            # When someone connects to the voice channel
+            pass
         else:
             # When the members state stays the same.
-            # FIXME: Add code when needed.
             pass
 
 
@@ -239,7 +258,8 @@ async def sync(
             synced = await ctx.bot.tree.sync()
 
         await ctx.send(
-            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild.'}"
+            f"Synced {len(synced)} commands "
+            f"{'globally' if spec is None else 'to the current guild.'}"
         )
         return
 

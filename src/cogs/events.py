@@ -2,9 +2,9 @@
 import wavelink
 from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
-from src.credentials.loader import EnvLoader  # pylint:disable=import-error
-from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
+from logs import settings
+from src.credentials.loader import EnvLoader
+from src.utils.music_helper import MusicHelper
 
 logger = settings.logging.getLogger(__name__)
 
@@ -15,25 +15,25 @@ class MusicEvents(commands.Cog):
     """
 
     bot: commands.Bot
-    music: MusicHelper
-    env: EnvLoader
 
-    def __init__(self, bot, music, env) -> None:
+    def __init__(self, bot) -> None:
         self.bot = bot
-        self.music = music
-        self.env = env
+        self.music = MusicHelper()
+        self.env = EnvLoader.load_env()
 
     ### Lavalink Events
     @commands.Cog.listener()
-    async def on_wavelink_node_ready(
-        self, node: wavelink.Node
-    ):  ## Fires when the lavalink server is connected
+    async def on_wavelink_node_ready(self, node: wavelink.Node):
+        """
+        Fires when the lavalink server is connected
+        """
         print(f"Node: <{node.identifier}> is ready!")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(
-        self, player: wavelink.Player, track, reason
-    ):  ## Fires when a track ends.
+    async def on_wavelink_track_end(self, player: wavelink.Player, track, reason):
+        """
+        Fires when a track ends.
+        """
         ctx = player.reply  ## Retrieve the guild's channel id.
 
         # MOVED TO "VOICE_STATE_UPDATE"
@@ -75,14 +75,16 @@ class MusicEvents(commands.Cog):
         logging_channel = self.bot.get_channel(
             int(self.env.logging_id)
         )  ## Retrieve the logging channel.
+        logger.info("Song ended because of reason: %s", reason)
         await logging_channel.send(
             embed=await self.music.log_track_finished(track, player.guild)
         )  ## Send the log embed.
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(
-        self, player: wavelink.Player, track
-    ):  ## Fires when a track starts.
+    async def on_wavelink_track_start(self, player: wavelink.Player, track):
+        """
+        Fires when a track starts.
+        """
         ctx = player.reply  ## Retrieve the guild's channel id.
 
         if (
@@ -106,6 +108,7 @@ class MusicEvents(commands.Cog):
 
 
 async def setup(bot):
-    env = EnvLoader.load_env()
-    music = MusicHelper()
-    await bot.add_cog(MusicEvents(bot, music, env))
+    """
+    Setup the cog.
+    """
+    await bot.add_cog(MusicEvents(bot))

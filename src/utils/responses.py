@@ -14,13 +14,16 @@ import spotipy
 import wavelink as wl
 from spotipy import SpotifyException
 
-from logs import settings  # pylint:disable=import-error
-from src.utils.functions import Functions  # pylint:disable=import-error
+from logs import settings
+from src.utils.functions import Functions
 
 logger = settings.logging.getLogger(__name__)
 
-class Responses(Functions):  ## Contains various bot responses.
-    """Holds methods for responding on interactions"""
+
+class Responses(Functions):  # pylint:disable=too-many-public-methods
+    """
+    Holds methods for responding on interactions.
+    """
 
     discord: dpy
     wavelink: wl
@@ -207,34 +210,27 @@ class Responses(Functions):  ## Contains various bot responses.
         """
         player = await self.get_player(guild_id)  ## Retrieve the player.
         queue_list = []  ## To store the tracks in the queue.
+        title = "**Queue**"
 
         if len(queue_info) == 0:  ## If there are no tracks in the queue, respond.
             return await self.empty_queue()
 
         for i, track in enumerate(
-            queue_info, start=1
+            queue_info[:20], start=1
         ):  ## Loop through all items in the queue.
 
-            if i == 21:
-                break  ## Only display 20 tracks in the queue to avoid giant embeds. Not sure how to add pagination.
-
-            else:  ## Otherwise, keep adding tracks.
-                queue_list.append(
-                    f"**{i}.** [{track.title}]({track.title_url}) - [{track.author}]({track.author_url})"
-                )  ## Add each track to the list.
+            queue_list.append(
+                f"**{i}.** [{track.title}]({track.title_url}) - [{track.author}]({track.author_url})"
+            )  ## Add each track to the list.
 
         if player.queue_loop:  ## If the queue loop is enabled, change the title.
-            embed = self.discord.Embed(
-                title="**Queue (Queue Loop Enabled)**",
-                description="\n".join(queue_list),
-                color=self.sucess_color,
-            )
-        else:
-            embed = self.discord.Embed(
-                title="**Queue**",
-                description="\n".join(queue_list),
-                color=self.sucess_color,
-            )
+            title = "**Queue (Queue Loop Enabled)**"
+
+        embed = self.discord.Embed(
+            title=title,
+            description="\n".join(queue_list),
+            color=self.sucess_color,
+        )
 
         embed.set_footer(text="Note: A max of 20 tracks are displayed in the queue.")
         embed.set_thumbnail(url=queue_info[0].cover_url)
@@ -414,7 +410,7 @@ class Responses(Functions):  ## Contains various bot responses.
 
         embed.add_field(
             name="Top 10",  ## Display all the newly released tracks,
-            value=f"\n".join(
+            value="\n".join(
                 [
                     f"**{i}.** [{item['name']}]({item['external_urls']['spotify']})"
                     for i, item in enumerate(new_releases["albums"]["items"], start=1)
@@ -435,7 +431,7 @@ class Responses(Functions):  ## Contains various bot responses.
 
         embed.add_field(
             name="Top 10",  ## Display all the trending tracks,
-            value=f"\n".join(
+            value="\n".join(
                 [
                     f"**{i}.** [{item['track']['name']}]({item['track']['external_urls']['spotify']}) - {item['track']['artists'][0]['name']}"
                     for i, item in enumerate(trending["items"], start=1)

@@ -15,7 +15,7 @@ LOGGING_CONFIG = {
         "console": {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
-            "formatter": "standard",
+            "formatter": "verbose",
         },
         "console2": {
             "level": "WARNING",
@@ -31,7 +31,11 @@ LOGGING_CONFIG = {
         },
     },
     "loggers": {
-        "bot": {"handlers": ["console"], "level": "INFO", "propogate": False},
+        "bot": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propogate": False,
+        },
         "discord": {
             "handlers": ["console2", "file"],
             "level": "INFO",

@@ -1,3 +1,7 @@
+"""
+Music helper module.
+Contains all responses and functions!
+"""
 import random
 from time import gmtime, strftime
 from typing import Literal, Optional
@@ -8,17 +12,16 @@ import spotipy
 import wavelink
 from spotipy import Spotify, SpotifyClientCredentials, SpotifyException
 
-from logs import settings # pylint:disable=import-error
+from logs import settings
 from src.credentials.loader import EnvLoader
 from src.utils.responses import Responses
 
 logger = settings.logging.getLogger(__name__)
 
 
-class MusicHelper(Responses):
+class MusicHelper(Responses):  # pylint:disable=too-many-instance-attributes
     """
     inherits from Responses --> Functions --> ABC
-
     This class is the one you should instanciate when using it in cogs
     """
 

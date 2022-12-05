@@ -1,9 +1,15 @@
+"""
+This module holds all appcommand.checks. 
+They will raise an error if condition is not met.
+
+They will be used as decorators for common commands.
+"""
 import discord
 import wavelink
 from discord import app_commands
 from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
+from logs import settings
 
 from .errors import MustBeSameChannel, NotConnectedToVoice, PlayerNotConnected
 
