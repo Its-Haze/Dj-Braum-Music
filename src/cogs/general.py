@@ -4,8 +4,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
-from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
+from logs import settings
+from src.utils.music_helper import MusicHelper
 
 logger = settings.logging.getLogger(__name__)
 
@@ -16,11 +16,10 @@ class General(commands.Cog):
     """
 
     bot: commands.Bot
-    music: MusicHelper
 
-    def __init__(self, bot, music) -> None:
+    def __init__(self, bot) -> None:
         self.bot = bot
-        self.music = music
+        self.music = MusicHelper()
 
     @app_commands.command(
         name="newreleases",
@@ -111,6 +110,9 @@ class General(commands.Cog):
     )
     @app_commands.describe(song_name="The name of the song to retrieve lyrics for.")
     async def lyrics(self, interaction: discord.Interaction, *, song_name: str):
+        """
+        /lyrics command
+        """
         await interaction.response.defer(
             ephemeral=True
         )  ## Send as an ephemeral to avoid clutter.
@@ -130,5 +132,7 @@ class General(commands.Cog):
 
 
 async def setup(bot):
-    music = MusicHelper()
-    await bot.add_cog(General(bot, music))
+    """
+    Setup the cog.
+    """
+    await bot.add_cog(General(bot))

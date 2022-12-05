@@ -5,14 +5,15 @@ from typing import Optional
 
 import dotenv
 
+from logs import settings
+
 dotenv.load_dotenv(dotenv_path="src/credentials/.env")  ## Load enviroment variables.
-from logs import settings  # pylint:disable=import-error
 
 logger = settings.logging.getLogger(__name__)
 
 
 @dataclass
-class EnvLoader:
+class EnvLoader:  # pylint:disable=too-many-instance-attributes
     """
     Class for loading environments
     """

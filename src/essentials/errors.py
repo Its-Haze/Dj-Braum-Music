@@ -1,7 +1,6 @@
 from discord.app_commands import CheckFailure
-from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
+from logs import settings
 
 logger = settings.logging.getLogger(__name__)
 

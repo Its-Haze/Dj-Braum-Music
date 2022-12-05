@@ -3,15 +3,9 @@ import discord
 import wavelink
 from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
-from src.credentials.loader import EnvLoader  # pylint:disable=import-error
-from src.essentials.errors import (  # pylint:disable=import-error
-    MustBeInNsfwChannel,
-    MustBeSameChannel,
-    NotConnectedToVoice,
-    PlayerNotConnected,
-)
-from src.utils.music_helper import MusicHelper  # pylint:disable=import-error
+from logs import settings
+from src.essentials.errors import MustBeSameChannel, NotConnectedToVoice
+from src.utils.music_helper import MusicHelper
 
 logger = settings.logging.getLogger(__name__)
 
@@ -21,9 +15,9 @@ class ErrorHandler(commands.Cog):
     Cog that triggers on error events.
     """
 
-    def __init__(self, bot: commands.Bot, music: MusicHelper) -> None:
+    def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.music = music
+        self.music = MusicHelper()
         bot.tree.on_error = self.on_app_command_error
 
     async def on_app_command_error(
@@ -48,5 +42,7 @@ class ErrorHandler(commands.Cog):
 
 
 async def setup(bot):
-    music = MusicHelper()
-    await bot.add_cog(ErrorHandler(bot, music))
+    """
+    Setup for the cog.
+    """
+    await bot.add_cog(ErrorHandler(bot))

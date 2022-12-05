@@ -5,14 +5,14 @@ import os
 
 from discord.ext import commands
 
-from logs import settings  # pylint:disable=import-error
+from logs import settings
 
 logger = settings.logging.getLogger(__name__)
 
 
 async def cog_loader(client: commands.Bot):
     """unloads all cogs."""
-    for filename in os.listdir("./src/cogs"):
-        if filename.endswith(".py"):
+    for filename in os.listdir("src/cogs"):
+        if filename.endswith(".py") and not filename.startswith("_"):
             await client.load_extension(f"src.cogs.{filename[:-3]}")
             logger.info(f"Loaded src.cogs.{filename[:-3]}")

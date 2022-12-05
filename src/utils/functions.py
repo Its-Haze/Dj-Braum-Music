@@ -1,3 +1,7 @@
+"""
+This is the function module
+that will be inherited by MusicHelper
+"""
 import random
 from time import gmtime, strftime
 from typing import Optional
@@ -5,19 +9,15 @@ from typing import Optional
 import lyricsgenius
 import spotipy
 import wavelink
-from discord import app_commands
 from spotipy import SpotifyException
 
-from logs import settings  # pylint:disable=import-error
-from src.utils.spotify_models import (  # pylint:disable=import-error
-    SpotifyAlbum,
-    SpotifyTrack,
-)
+from logs import settings
+from src.utils.spotify_models import SpotifyTrack
 
 logger = settings.logging.getLogger(__name__)
 
 
-class Functions:
+class Functions:  # pylint:disable=too-many-public-methods
     """
     An abstract base class.
     Holds basic functionalities for MusicHelper and Responses.
@@ -46,7 +46,11 @@ class Functions:
 
     async def get_queue(self, guild):
         """Returns the queue."""
-        return self.wavelink.NodePool.get_node().get_player(guild).queue._queue
+        return (
+            self.wavelink.NodePool.get_node()  # pylint:disable=protected-access
+            .get_player(guild)
+            .queue._queue
+        )
 
     async def shuffle(self, queue):
         """Shuffles the queue."""
@@ -298,12 +302,15 @@ class Functions:
         """
         Returns the data in a Title:Album:Artist format.
         """
-        return "\n".join(
-            [
-                f"**{i}.** [{track['name']}]({track['external_urls']['spotify']}) - [{track['album']['name']}]({track['album']['external_urls']['spotify']}) - [{track['artists'][0]['name']}]({track['artists'][0]['external_urls']['spotify']})"
-                for i, track in enumerate(search_results["tracks"]["items"], start=1)
-            ]
-        )
+        all_tracks = [
+            (
+                f"**{i}.** [{track['name']}]({track['external_urls']['spotify']}) - "
+                f"[{track['album']['name']}]({track['album']['external_urls']['spotify']}) - "
+                f"[{track['artists'][0]['name']}]({track['artists'][0]['external_urls']['spotify']})"
+            )
+            for i, track in enumerate(search_results["tracks"]["items"], start=1)
+        ]
+        return "\n".join(all_tracks)
 
     async def format_query_search_results_track(
         self,
@@ -323,26 +330,26 @@ class Functions:
             reverse=True,
         )
 
-    async def format_query_search_results_album(
-        self,
-        search_results: dict,
-        limit: int = 5,
-    ) -> list[SpotifyAlbum]:
-        """
-        Returns a list of Spotify Albums
-        """
-        formatted_and_sorted_albums = SpotifyAlbum.from_search_results(
-            search_result=search_results.get("albums").get("items")[:limit],
-        )
+    # async def format_query_search_results_album(
+    #     self,
+    #     search_results: dict,
+    #     limit: int = 5,
+    # ) -> list[SpotifyAlbum]:
+    #     """
+    #     Returns a list of Spotify Albums
+    #     """
+    #     formatted_and_sorted_albums = SpotifyAlbum.from_search_results(
+    #         search_result=search_results.get("albums").get("items")[:limit],
+    #     )
 
-        return sorted(
-            formatted_and_sorted_albums,
-            key=lambda fl: fl.total_tracks,
-            reverse=True,
-        )
+    #     return sorted(
+    #         formatted_and_sorted_albums,
+    #         key=lambda fl: fl.total_tracks,
+    #         reverse=True,
+    #     )
 
     def convert_ms(self, milliseconds: int) -> str:
         """Returns milliseconds in minutes and seconds"""
-        seconds = milliseconds // 1000
-        mm, ss = divmod(seconds, 60)
-        return f"{mm}:{ss if ss >9 else f'0{ss}'}"
+        _seconds = milliseconds // 1000
+        minutes, seconds = divmod(_seconds, 60)
+        return f"{minutes}:{seconds if seconds >9 else f'0{seconds}'}"
