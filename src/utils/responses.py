@@ -216,7 +216,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             return await self.empty_queue()
 
         for i, track in enumerate(
-            queue_info[:20], start=1
+            list(queue_info)[:20], start=1
         ):  ## Loop through all items in the queue.
 
             queue_list.append(

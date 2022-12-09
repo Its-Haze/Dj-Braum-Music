@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from logs import settings
 from src.credentials.loader import EnvLoader
-from src.utils.cogs_loader import cog_loader
+from src.utils.cogs_loader import cog_loader, cog_reloader
 from src.utils.music_helper import MusicHelper
 
 env_loader = EnvLoader.load_env()
@@ -273,6 +273,31 @@ async def sync(
             ret += 1
 
     await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+
+
+@client.command(name="close", alias="shutdown")
+@commands.guild_only()
+@commands.is_owner()
+async def close(
+    ctx: commands.Context,
+) -> None:
+    """
+    Shutdown command for Braum
+    """
+    await ctx.send("Bot will shutdown soon")
+    await client.close()
+
+@client.command(name="reload", alias="cogs")
+@commands.guild_only()
+@commands.is_owner()
+async def reload(
+    ctx: commands.Context,
+) -> None:
+    """
+    reloads cogs for Braum
+    """
+    await cog_reloader(client=client)
+    await ctx.send("Cogs are being reloaded")
 
 
 async def main():

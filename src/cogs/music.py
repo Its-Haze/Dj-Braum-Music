@@ -191,8 +191,10 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(interaction.guild):
+            ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
@@ -532,9 +534,14 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If user is in a VC, join it.
-        player: wavelink.Player = await interaction.user.voice.channel.connect(
-            cls=wavelink.Player, self_deaf=True
-        )
+
+        if not interaction.guild.voice_client:
+            vc: wavelink.Player = await interaction.user.voice.channel.connect(
+                cls=wavelink.Player, self_deaf=True
+            )
+        else:
+            ## Otherwise, initalize voice_client.
+            vc: wavelink.Player = interaction.guild.voice_client
 
         ## If a URL is entered, respond.
         if re.match(self.music.url_regex, search):
@@ -554,7 +561,7 @@ class Music(commands.Cog):
             )
 
         ## Store the channel id to be used in track_start.
-        player.reply = interaction.channel
+        vc.reply = interaction.channel
 
         ## Modify the track info.
         final_track = await self.music.gather_track_info(
@@ -562,43 +569,52 @@ class Music(commands.Cog):
         )
 
         ## If a track is playing, add it to the queue.
-        if player.is_playing():
+        if vc.is_playing():
+
+            ## Use the modified track.
             await interaction.followup.send(
                 embed=await self.music.added_track(final_track)
-            )  ## Use the modified track.
+            )
 
-            return await player.queue.put_wait(
-                final_track
-            )  ## Add the modified track to the queue.
+            ## Add the modified track to the queue.
+            return await vc.queue.put_wait(final_track)
 
-        ## Otherwise, begin playing.
-        ## Send an ephemeral as now playing is handled by on_track_start.
-        msg = await interaction.followup.send(embed=await self.music.started_playing())
+        else:
+            ## Otherwise, begin playing.
 
-        ## Set the loop value to false as we have just started playing.
-        player.loop = False
+            ## Send an ephemeral as now playing is handled by on_track_start.
+            msg = await interaction.followup.send(
+                embed=await self.music.started_playing()
+            )
 
-        ## Set the queue_loop value to false as we have just started playing.
-        player.queue_loop = False
+            ## Set the loop value to false as we have just started playing.
+            vc.loop = False
 
-        ## Used to store the currently playing track in case the user decides to loop.
-        player.looped_track = None
+            ## Set the queue_loop value to false as we have just started playing.
+            vc.queue_loop = False
 
-        ## Used to re-add the track in a queue loop.
-        player.queue_looped_track = None
+            ## Used to store the currently playing track in case the user decides to loop.
+            vc.looped_track = None
 
-        ## Play the modified track.
-        await player.play(final_track)
-        await asyncio.sleep(5)
+            ## Used to re-add the track in a queue loop.
+            vc.queue_looped_track = None
 
-        ## Delete the message after 5 seconds.
-        return await interaction.followup.delete_message(msg.id)
+            ## Play the modified track.
+            await vc.play(final_track)
+
+            ## Delete the message after 5 seconds.
+            await asyncio.sleep(5)
+            return await interaction.followup.delete_message(msg.id)
 
     async def url(self, interaction: discord.Interaction, *, spotify_url: str):
         """
         Validates the URL to check for open.spotify links only
         Adds the spotify song/album/playlist to the queue
         """
+
+        if "?" in spotify_url:
+            spotify_url = spotify_url.split("?")[0]
+
         if (
             "https://open.spotify.com/playlist" in spotify_url
         ):  ## If a spotify playlist url is entered.
@@ -683,6 +699,13 @@ class Music(commands.Cog):
 
         if current.strip() == "":
             return not_found_choice
+        if "https://" in current.lower().strip():
+            return [
+                app_commands.Choice(
+                    name="Spotify URL's are supported!",
+                    value=current,
+                )
+            ]
 
         query_searched = await self.music.search_songs(
             current.lower(),

@@ -30,7 +30,9 @@ class MusicEvents(commands.Cog):
         print(f"Node: <{node.identifier}> is ready!")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, player: wavelink.Player, track, reason):
+    async def on_wavelink_track_end(
+        self, player: wavelink.Player, track: wavelink.Track, reason
+    ):
         """
         Fires when a track ends.
         """
