@@ -12,6 +12,7 @@ from logs import settings
 from src.essentials.checks import in_same_channel, member_in_voicechannel
 from src.utils.music_helper import MusicHelper
 from src.utils.spotify_models import SpotifyTrack
+from src.utils.views import TracksDropdownView
 
 logger = settings.logging.getLogger(__name__)
 
@@ -34,13 +35,26 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if (
-            not interaction.guild.voice_client
-        ):  ## If user is in a VC and bot is not, join it.
-            await interaction.user.voice.channel.connect(
-                cls=wavelink.Player, self_deaf=True
-            )
-            return await interaction.followup.send(embed=await self.music.in_vc())
+        if interaction.guild is not None:
+            # If user is in a VC and bot is not, join it.
+            if interaction.guild.voice_client is None:
+                await interaction.user.voice.channel.connect(
+                    cls=wavelink.Player,
+                    self_deaf=True,
+                )
+                return await interaction.followup.send(
+                    embed=await self.music.in_vc(),
+                )
+            else:
+                # If client is already connected to a voice channel
+                return await interaction.followup.send(
+                    embed=await self.music.already_in_vc(),
+                )
+
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
     @in_same_channel()
@@ -51,8 +65,14 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        await interaction.guild.voice_client.disconnect()
-        return await interaction.followup.send(embed=await self.music.left_vc())
+        if interaction.guild.voice_client:  ## If bot is in a VC, leave it.
+            await interaction.guild.voice_client.disconnect()
+            return await interaction.followup.send(embed=await self.music.left_vc())
+
+        else:  ## If bot is not in VC, respond.
+            return await interaction.followup.send(
+                embed=await self.music.already_left_vc()
+            )
 
     @app_commands.command(
         name="pause", description="Braum pauses the currently playing track."
@@ -65,29 +85,40 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
-
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, pause the currently playing track.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the current player.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve currently playing track's info.
 
-        # If the player is already paused, respond
-        if player.is_paused():
-            return await interaction.followup.send(
-                embed=await self.music.already_paused(track)
-            )
+            if not player.is_paused():  ## If the current track is not paused, pause it.
+                await interaction.guild.voice_client.pause()
+                return await interaction.followup.send(
+                    embed=await self.music.common_track_actions(track, "Paused")
+                )
 
-        ## If the current track is not paused, pause it.
-        await interaction.guild.voice_client.pause()
+            else:  ## Otherwise, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.already_paused(track)
+                )
+                # If something went wrong. reply the interaction
+
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Paused")
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="resume", description="Braum resumes the currently playing track."
@@ -100,29 +131,40 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
-
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, resume the currently playing track.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the current player.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve currently playing track's info.
 
-        ## If the current track is paused, resume it.
-        if player.is_paused():
-            await interaction.guild.voice_client.resume()
-            return await interaction.followup.send(
-                embed=await self.music.common_track_actions(track, "Resumed")
-            )
+            if player.is_paused():  ## If the current track is paused, resume it.
+                await interaction.guild.voice_client.resume()
+                return await interaction.followup.send(
+                    embed=await self.music.common_track_actions(track, "Resumed")
+                )
 
-        ## Otherwise, respond.
+            else:  ## Otherwise, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.already_resumed(track)
+                )
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.already_resumed(track)
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="stop", description="Braum stops the currently playing track."
@@ -135,25 +177,36 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if not await self.music.get_track(
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
             interaction.guild
         ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## If bot is in a VC, stop the currently playing track.
-        ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, stop the currently playing track.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve currently playing track's info.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the current player.
+            await interaction.followup.send(
+                embed=await self.music.common_track_actions(track, "Stopped")
+            )
 
-        ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
-        await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Stopped")
-        )
+            return (
+                await interaction.guild.voice_client.stop()
+            )  ## Stop the track after sending the embed.
 
-        ## Stop the track after sending the embed.
-        return await player.stop()
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="skip", description="Braum skips the currently playing track."
@@ -166,23 +219,33 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, skip the currently playing track.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve currently playing track's info.
+            await interaction.followup.send(
+                embed=await self.music.common_track_actions(track, "Skipped")
+            )
 
-        ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
-        await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Skipped")
-        )
+            return (
+                await interaction.guild.voice_client.stop()
+            )  ## Skip the track after sending the embed.
 
-        ## Skip the track after sending the embed.
-        return await player.stop()
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(name="queue", description="Braum shows you the queue.")
     async def queue(self, interaction: discord.Interaction):
@@ -193,18 +256,26 @@ class Music(commands.Cog):
 
         if not await self.music.get_player(
             interaction.guild
-        ) or not await self.music.get_track(interaction.guild):
-            ## If nothing is playing, respond.
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Show the queue.
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, show the current queue.
+            return await interaction.followup.send(
+                embed=await self.music.show_queue(
+                    await self.music.get_queue(interaction.guild), interaction.guild
+                )
+            )  ## Show the queue.
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.show_queue(
-                await self.music.get_queue(interaction.guild), interaction.guild
-            )
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(name="shuffle", description="Braum shuffles the queue.")
     @in_same_channel()
@@ -215,36 +286,49 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve the current queue.
-        queue = await self.music.get_queue(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, shuffle the current queue.
+            queue = await self.music.get_queue(
+                interaction.guild
+            )  ## Retrieve the current queue.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve the current track.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the current player.
 
-        ## Retrieve the current track.
-        track = await self.music.get_track(interaction.guild)
+            if len(queue) == 0:  ## If there are no tracks in the queue, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.empty_queue()
+                )
 
-        ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+            else:
+                await self.music.shuffle(queue)  ## Shuffle the queue.
+                if (
+                    not player.queue_loop
+                ):  ## If the queue loop is not enabled, place the current track at the end of the queue.
+                    player.queue.put(
+                        track
+                    )  ## Add the current track to the end of the queue.
+                return await interaction.followup.send(
+                    embed=await self.music.shuffled_queue()
+                )
 
-        ## If there are no tracks in the queue, respond.
-        if len(queue) == 0:
-            return await interaction.followup.send(embed=await self.music.empty_queue())
-
-        else:
-            ## Shuffle the queue.
-            await self.music.shuffle(queue)
-
-            ## If the queue loop is not enabled, place the current track at the end of the queue.
-            if not player.queue_loop:
-                ## Add the current track to the end of the queue.
-                player.queue.put(track)
-            return await interaction.followup.send(
-                embed=await self.music.shuffled_queue()
-            )
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="nowplaying", description="Braum shows you the currently playing song."
@@ -255,18 +339,35 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, resume the currently playing track.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve currently playing track's info.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the current player.
 
+            return await interaction.followup.send(
+                embed=await self.music.display_track(
+                    track, interaction.guild, False, True
+                )
+            )
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.display_track(track, interaction.guild, False, True)
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(name="volume", description="Braum adjusts the volume.")
     @app_commands.describe(
@@ -280,23 +381,36 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Volume cannot be greater than 100%.
-        if volume_percentage > 100:
-            return await interaction.followup.send(
-                embed=await self.music.volume_too_high()
-            )
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, resume the currently playing track.
 
-        ## Adjust the volume to the specified percentage.
-        await self.music.modify_volume(interaction.guild, volume_percentage)
+            if volume_percentage > 100:  ## Volume cannot be greater than 100%.
+                return await interaction.followup.send(
+                    embed=await self.music.volume_too_high()
+                )
+
+            else:
+                await self.music.modify_volume(
+                    interaction.guild, volume_percentage
+                )  ## Adjust the volume to the specified percentage.
+                return await interaction.followup.send(
+                    embed=await self.music.volume_set(volume_percentage)
+                )
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.volume_set(volume_percentage)
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="remove", description="Braum removes a track from the queue."
@@ -312,29 +426,37 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Store the info beforehand as the track will be removed.
-        remove_msg = await self.music.queue_track_actions(
-            await self.music.get_queue(interaction.guild), track_index, "Removed"
-        )
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, try to remove the requested track.
+            remove_msg = await self.music.queue_track_actions(
+                await self.music.get_queue(interaction.guild), track_index, "Removed"
+            )  ## Store the info beforehand as the track will be removed.
 
-        ## If the track exists in the queue, respond.
-        if remove_msg:
-            ## Remove the track.
-            await self.music.remove_track(
-                await self.music.get_queue(interaction.guild), track_index
-            )
-            return await interaction.followup.send(embed=remove_msg)
+            if remove_msg != False:  ## If the track exists in the queue, respond.
+                await self.music.remove_track(
+                    await self.music.get_queue(interaction.guild), track_index
+                )  ## Remove the track.
+                return await interaction.followup.send(embed=remove_msg)
 
-        ## If the track was not removed, respond.
+            else:  ## If the track was not removed, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.track_not_in_queue()
+                )
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.track_not_in_queue()
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="skipto", description="Braum skips to a specific track in the queue."
@@ -350,29 +472,38 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Store the info beforehand as the track will be removed.
-        skipped_msg = await self.music.queue_track_actions(
-            await self.music.get_queue(interaction.guild), track_index, "Skipped to"
-        )
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, try to remove the requested track.
+            skipped_msg = await self.music.queue_track_actions(
+                await self.music.get_queue(interaction.guild), track_index, "Skipped to"
+            )  ## Store the info beforehand as the track will be removed.
 
-        ## If the track exists in the queue, respond.
-        if skipped_msg:
-            ## Skip to the requested track.
-            await self.music.skipto_track(interaction.guild, track_index)
-            ## Stop the currently playing track.
-            await interaction.guild.voice_client.stop()
-            return await interaction.followup.send(embed=skipped_msg)
+            if skipped_msg != False:  ## If the track exists in the queue, respond.
+                await self.music.skipto_track(
+                    interaction.guild, track_index
+                )  ## Skip to the requested track.
+                await interaction.guild.voice_client.stop()  ## Stop the currently playing track.
+                return await interaction.followup.send(embed=skipped_msg)
 
-        ## If the track was not skipped, respond.
+            else:  ## If the track was not skipped, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.track_not_in_queue()
+                )
+
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.track_not_in_queue()
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(name="empty", description="Braum empties the queue.")
     @in_same_channel()
@@ -383,32 +514,38 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## If bot is in a VC, empty the queue.
-        elif interaction.guild.voice_client:
+        elif interaction.guild.voice_client:  ## If bot is in a VC, empty the queue.
+            queue = await self.music.get_queue(
+                interaction.guild
+            )  ## Retrieve the current queue.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the player.
 
-            ## Retrieve the current queue.
-            queue = await self.music.get_queue(interaction.guild)
-
-            ## Retrieve the player.
-            player = await self.music.get_player(interaction.guild)
-
-            ## If there are no tracks in the queue, respond.
-            if len(queue) == 0:
+            if len(queue) == 0:  ## If there are no tracks in the queue, respond.
                 return await interaction.followup.send(
                     embed=await self.music.empty_queue()
                 )
 
-            ## Otherwise, clear the queue.
-            player.queue.clear()
-            return await interaction.followup.send(
-                embed=await self.music.cleared_queue()
-            )
+            else:  ## Otherwise, clear the queue.
+                player.queue.clear()
+                return await interaction.followup.send(
+                    embed=await self.music.cleared_queue()
+                )
+
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="loop", description="Braum loops the currently playing track."
@@ -421,34 +558,46 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve the player.
-        player = await self.music.get_player(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, enable/disable the loop.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the player.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve the currently playing track.
 
-        ## Retrieve the currently playing track.
-        track = await self.music.get_track(interaction.guild)
+            if not player.loop:  ## If the loop is not enabled, enable it.
+                await interaction.followup.send(
+                    embed=await self.music.common_track_actions(track, "Looping")
+                )  ## Send the msg before enabling the loop to avoid confusing embed titles.
 
-        ## If the loop is not enabled, enable it.
-        if not player.loop:
-            ## Send the msg before enabling the loop to avoid confusing embed titles.
-            await interaction.followup.send(
-                embed=await self.music.common_track_actions(track, "Looping")
-            )
-            player.loop = True
+                player.loop = True
+                player.looped_track = track  ## Store the currently playing track so that it can be looped.
+                return
 
-            ## Store the currently playing track so that it can be looped.
-            player.looped_track = track
-            return
+            else:  ## If the loop is already enabled, disable it.
+                player.loop = False
+                return await interaction.followup.send(
+                    embed=await self.music.common_track_actions(
+                        track, "Stopped looping"
+                    )
+                )
 
-        player.loop = False
+        # If something went wrong. reply the interaction
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Stopped looping")
-        )
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
     @app_commands.command(
         name="queueloop", description="Braum loops the current queue."
@@ -461,50 +610,83 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.music.get_player(
+            interaction.guild
+        ) or not await self.music.get_track(
+            interaction.guild
+        ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
                 embed=await self.music.nothing_is_playing()
             )
 
-        ## Retrieve the player.
-        player = await self.music.get_player(interaction.guild)
+        elif (
+            interaction.guild.voice_client
+        ):  ## If bot is in a VC, enable/disable the queue loop.
+            player = await self.music.get_player(
+                interaction.guild
+            )  ## Retrieve the player.
+            track = await self.music.get_track(
+                interaction.guild
+            )  ## Retrieve the currently playing track.
+            queue = await self.music.get_queue(
+                interaction.guild
+            )  ## Retrieve the current queue.
 
-        ## Retrieve the currently playing track.
-        track = await self.music.get_track(interaction.guild)
-        ## Retrieve the current queue.
-        queue = await self.music.get_queue(interaction.guild)
+            if (
+                len(queue) < 1 and not player.queue_loop
+            ):  ## If there is less than 1 track in the queue and there is not a current queueloop, respond.
+                return await interaction.followup.send(
+                    embed=await self.music.less_than_1_track()
+                )
 
-        ## If there is less than 1 track in the queue and there is not a current queueloop, respond.
-        if len(queue) < 1 and not player.queue_loop:
-            return await interaction.followup.send(
-                embed=await self.music.less_than_1_track()
-            )
+            if not player.queue_loop:  ## If the queue loop is not enabled, enable it.
+                await interaction.followup.send(
+                    embed=await self.music.common_track_actions(
+                        None, "Looping the queue"
+                    )
+                )  ## Send the msg before enabling the queue loop to avoid confusing embed titles.
 
-        ## If the queue loop is not enabled, enable it.
-        if not player.queue_loop:
+                player.queue_loop = True
+                player.queue_looped_track = track  ## Add the currently playing track.
+                return
 
-            ## Send the msg before enabling the queue loop to avoid confusing embed titles.
-            await interaction.followup.send(
-                embed=await self.music.common_track_actions(None, "Looping the queue")
-            )
-            player.queue_loop = True
+            else:  ## If the queue loop is already enabled, disable it.
+                player.queue_loop = False
+                player.queue_looped_track = (
+                    None  ## Prevents the current track from constantly being assigned.
+                )
 
-            ## Add the currently playing track.
-            player.queue_looped_track = track
-            return
+                return await interaction.followup.send(
+                    embed=await self.music.common_track_actions(
+                        None, "Stopped looping the queue"
+                    )
+                )
 
-        ## If the queue loop is already enabled, disable it.
-        player.queue_loop = False
+        # If something went wrong. reply the interaction
+        return await interaction.followup.send(
+            embed=await self.music.unexpected_response()
+        )  # FIXME: raise an error that the error_handler cog can listen to.
 
-        ## Prevents the current track from constantly being assigned.
-        player.queue_looped_track = None
+    @app_commands.command(
+        name="search", description="Braum searches Spotify for tracks!"
+    )
+    @app_commands.describe(search_query="The name of the song to search for.")
+    async def search(self, interaction: discord.Interaction, *, search_query: str):
+        """
+        Search command for
+        """
+        await interaction.response.defer()
+        print("in search command")
+
+        embed, youtube_tracks = await self.music.display_search(
+            search_query=search_query
+        )
+
+        view = TracksDropdownView(tracks=youtube_tracks)
 
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(
-                None, "Stopped looping the queue"
-            )
-        )
+            embed=embed, view=view
+        )  ## Display the invite embed.
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
     @app_commands.describe(
@@ -533,21 +715,16 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        ## If user is in a VC, join it.
+        print(search)
 
-        if not interaction.guild.voice_client:
-            vc: wavelink.Player = await interaction.user.voice.channel.connect(
-                cls=wavelink.Player, self_deaf=True
-            )
-        else:
-            ## Otherwise, initalize voice_client.
-            vc: wavelink.Player = interaction.guild.voice_client
+        voice_client = await self.music.initalize_voice_client(interaction=interaction)
 
         ## If a URL is entered, respond.
         if re.match(self.music.url_regex, search):
+            print("Its an URL")
             # self.url validates that it is a valid spotify URL
             return await self.url(interaction=interaction, spotify_url=search)
-
+        print("I SHOULD NOT BE EXECUTED!")
         try:
             ## Search for a song.
             track = await wavelink.YouTubeMusicTrack.search(search, return_first=True)
@@ -561,7 +738,7 @@ class Music(commands.Cog):
             )
 
         ## Store the channel id to be used in track_start.
-        vc.reply = interaction.channel
+        voice_client.reply = interaction.channel
 
         ## Modify the track info.
         final_track = await self.music.gather_track_info(
@@ -569,7 +746,7 @@ class Music(commands.Cog):
         )
 
         ## If a track is playing, add it to the queue.
-        if vc.is_playing():
+        if voice_client.is_playing():
 
             ## Use the modified track.
             await interaction.followup.send(
@@ -577,7 +754,7 @@ class Music(commands.Cog):
             )
 
             ## Add the modified track to the queue.
-            return await vc.queue.put_wait(final_track)
+            return await voice_client.queue.put_wait(final_track)
 
         else:
             ## Otherwise, begin playing.
@@ -588,19 +765,19 @@ class Music(commands.Cog):
             )
 
             ## Set the loop value to false as we have just started playing.
-            vc.loop = False
+            voice_client.loop = False
 
             ## Set the queue_loop value to false as we have just started playing.
-            vc.queue_loop = False
+            voice_client.queue_loop = False
 
             ## Used to store the currently playing track in case the user decides to loop.
-            vc.looped_track = None
+            voice_client.looped_track = None
 
             ## Used to re-add the track in a queue loop.
-            vc.queue_looped_track = None
+            voice_client.queue_looped_track = None
 
             ## Play the modified track.
-            await vc.play(final_track)
+            await voice_client.play(final_track)
 
             ## Delete the message after 5 seconds.
             await asyncio.sleep(5)
@@ -614,6 +791,7 @@ class Music(commands.Cog):
 
         if "?" in spotify_url:
             spotify_url = spotify_url.split("?")[0]
+        print(spotify_url, "After the ? has been splitted off.")
 
         if (
             "https://open.spotify.com/playlist" in spotify_url
@@ -699,7 +877,7 @@ class Music(commands.Cog):
 
         if current.strip() == "":
             return not_found_choice
-        if "https://" in current.lower().strip():
+        if "https://open.spotify.com" in current.lower().strip():
             return [
                 app_commands.Choice(
                     name="Spotify URL's are supported!",

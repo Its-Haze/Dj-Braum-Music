@@ -6,12 +6,17 @@ import random
 from time import gmtime, strftime
 from typing import Optional
 
+import discord
 import lyricsgenius
+import rich
 import spotipy
-import wavelink
+import wavelink as wl
 from spotipy import SpotifyException
+from wavelink import YouTubeMusicTrack
+from wavelink.ext import spotify as wavelink_spotify
 
 from logs import settings
+from src.essentials.errors import PlayerNotConnected
 from src.utils.spotify_models import SpotifyTrack
 
 logger = settings.logging.getLogger(__name__)
@@ -25,7 +30,7 @@ class Functions:  # pylint:disable=too-many-public-methods
 
     strftime: strftime
     gmtime: gmtime
-    wavelink: wavelink
+    wavelink: wl
     random: random
     spotify: spotipy.Spotify
     trending_uri: Optional[str]
@@ -61,6 +66,7 @@ class Functions:  # pylint:disable=too-many-public-methods
         search_results = self.spotify.search(
             q=f"{title} {artist}", limit=1
         )  ## Search spotify for metadata.
+
         track_info.title = search_results["tracks"]["items"][0]["name"]
         track_info.title_url = search_results["tracks"]["items"][0]["external_urls"][
             "spotify"
@@ -94,6 +100,8 @@ class Functions:  # pylint:disable=too-many-public-methods
         track_info.cover_url = track_metadata["album"]["images"][0]["url"]
         track_info.release_date = track_metadata["album"]["release_date"]
         return track_info
+
+
 
     async def modify_volume(self, guild, volume: int):
         """
@@ -242,8 +250,13 @@ class Functions:  # pylint:disable=too-many-public-methods
             pass
 
         try:
+            print("track id = ", track_id)
             track_info = self.spotify.track(track_id)  ## Retrieve track info.
-        except self.spot_exception:  ## If nothing was found, return none.
+            from rich import inspect
+
+            inspect(track_info)
+        except self.spot_exception as exc:  ## If nothing was found, return none.
+            print("EXCEPTION has been raised!", exc)
             return None
 
         title = track_info["name"]
@@ -296,7 +309,34 @@ class Functions:  # pylint:disable=too-many-public-methods
         search_results = self.spotify.search(
             q=f"{search_query}", limit=limit, type=category
         )
+        print(search_results)
         return search_results
+
+    async def search_songs_ytmusic(
+        self, search_query: str, limit: int = 10
+    ) -> list[YouTubeMusicTrack]:
+        """
+        Returns n-limit amount of tracks from Youtube Music.
+        """
+        tracks = await wl.YouTubeMusicTrack.search(query=search_query)
+
+        return tracks[:limit]
+
+    async def format_search_results_ytmusic(
+        self, tracks: list[YouTubeMusicTrack]
+    ) -> str:
+        """
+        Returns the songs in this format
+        index : songName : authorName : songLength
+        """
+        rich.inspect(tracks[-1])
+
+        all_tracks = [
+            f"**{i}.** [{track.info.get('title')}]({track.info.get('uri')}) - {track.info.get('author')} - {self.convert_ms(milliseconds=track.info.get('length'))}"
+            for i, track in enumerate(tracks, start=1)
+        ]
+
+        return "\n".join(all_tracks)
 
     async def format_search_results(self, search_results):
         """
@@ -320,15 +360,22 @@ class Functions:  # pylint:disable=too-many-public-methods
         """
         Returns a list of Spotify Tracks
         """
+        from rich import inspect
+
+        inspect(search_results.get("tracks").get("items")[:limit])
+
         formatted_and_sorted_tracks = SpotifyTrack.from_search_results(
             search_result=search_results.get("tracks").get("items")[:limit],
         )
 
-        return sorted(
+        sorted_tracks = sorted(
             formatted_and_sorted_tracks,
             key=lambda fl: fl.popularity,
             reverse=True,
         )
+
+        inspect(sorted_tracks[0])
+        return sorted_tracks
 
     # async def format_query_search_results_album(
     #     self,
@@ -353,3 +400,19 @@ class Functions:  # pylint:disable=too-many-public-methods
         _seconds = milliseconds // 1000
         minutes, seconds = divmod(_seconds, 60)
         return f"{minutes}:{seconds if seconds >9 else f'0{seconds}'}"
+
+    async def initalize_voice_client(
+        self, interaction: discord.Interaction
+    ) -> wl.Player:
+        """
+        Joins the voice channel and returns the voice client
+        """
+
+        ## If user is in a VC, join it.
+        if not interaction.guild.voice_client:
+            return await interaction.user.voice.channel.connect(
+                cls=wl.Player, self_deaf=True
+            )
+
+        ## Otherwise, initalize voice_client.
+        return interaction.guild.voice_client

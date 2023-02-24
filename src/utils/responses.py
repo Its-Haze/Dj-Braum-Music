@@ -13,6 +13,7 @@ import lyricsgenius
 import spotipy
 import wavelink as wl
 from spotipy import SpotifyException
+from wavelink import YouTubeMusicTrack
 
 from logs import settings
 from src.utils.functions import Functions
@@ -263,7 +264,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
         return embed
 
-    async def volume_set(self, percentage: str):
+    async def volume_set(self, percentage: int):
         """
         Set the volume
         """
@@ -591,30 +592,45 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
         return embed
 
-    async def display_search(self, search_query):
+    async def display_search(
+        self, search_query: str
+    ) -> tuple[dpy.Embed, list[YouTubeMusicTrack]]:
         """
         Displays the search results.
         """
-        search_results = await self.search_songs(
-            search_query
-        )  ## Retrieve search results.
-        formatted_results = await self.format_search_results(
+        # search_results = await self.search_songs(
+        #     search_query
+        # )  ## Retrieve search results.
+        print("in display search")
+        search_results = await self.search_songs_ytmusic(
+            search_query=search_query,
+            limit=10,
+        )
+
+        print(search_results)
+
+        # formatted_results = await self.format_search_results(
+        #     search_results
+        # )  ## Format the search results.
+
+        formatted_results = await self.format_search_results_ytmusic(
             search_results
         )  ## Format the search results.
+        print(formatted_results)
 
         embed = self.discord.Embed(
-            title="**Search Results**",
+            title="**Search Results**\nTitle - Artists - Length",
             description=formatted_results,
             color=self.sucess_color,
         )
 
         embed.set_thumbnail(
-            url=search_results["tracks"]["items"][0]["album"]["images"][0]["url"]
+            url=search_results[0].thumbnail
         )  ## Set the thumbnail to the first track's artwork.
         embed.set_footer(
-            text="Tip: Copy any one of the track or album hyperlinks and play them with /url."
+            text="Tip: Use the button to select one of the songs to start playing"
         )
-        return embed
+        return embed, search_results
 
     async def already_paused(self, track_info):
         """
@@ -665,6 +681,17 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         embed = self.discord.Embed(
             title="**Dj braum is already connected to a voice channel!**",
             description=f"Join me here --> <#{channel.id}>",
+            color=self.err_color,
+        )
+        return embed
+
+    async def unexpected_response(self):
+        """
+        When our code is wrong and we need to reply back to the interaction.
+        """
+        embed = self.discord.Embed(
+            title="**Oops, something went wrong!**",
+            description="Looks like you have discovered a bug. please report it here\nhttps://github.com/Its-Haze/Dj-Braum-Music/issues",
             color=self.err_color,
         )
         return embed

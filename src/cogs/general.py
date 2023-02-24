@@ -92,20 +92,6 @@ class General(commands.Cog):
         )  ## Display the invite embed.
 
     @app_commands.command(
-        name="search", description="Braum searches Spotify for tracks!"
-    )
-    @app_commands.describe(search_query="The name of the song to search for.")
-    async def search(self, interaction: discord.Interaction, *, search_query: str):
-        """
-        Search command for
-        """
-        await interaction.response.defer()
-
-        return await interaction.followup.send(
-            embed=await self.music.display_search(search_query)
-        )  ## Display the invite embed.
-
-    @app_commands.command(
         name="lyrics", description="Braum finds lyrics for (almost) any song!"
     )
     @app_commands.describe(song_name="The name of the song to retrieve lyrics for.")
