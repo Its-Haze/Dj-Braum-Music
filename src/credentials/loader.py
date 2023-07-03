@@ -1,15 +1,12 @@
 """Credentials Loader"""
+import logging as logger
 import os
 from dataclasses import dataclass
 from typing import Optional
 
 import dotenv
 
-from logs import settings
-
-dotenv.load_dotenv(dotenv_path="src/credentials/.env")  ## Load enviroment variables.
-
-logger = settings.logging.getLogger(__name__)
+dotenv.load_dotenv(dotenv_path=".env")  ## Load enviroment variables.
 
 
 @dataclass
@@ -45,7 +42,6 @@ class EnvLoader:  # pylint:disable=too-many-instance-attributes
         """
         Loads all environment variables
         """
-
         return cls(
             **{
                 # Bot Info

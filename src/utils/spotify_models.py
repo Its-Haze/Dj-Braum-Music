@@ -2,11 +2,8 @@
 HOLDS CUSTOM SPOTIFY MODELS.
 """
 
+import logging as logger
 from dataclasses import dataclass
-
-from logs import settings
-
-logger = settings.logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, repr=False, eq=False)

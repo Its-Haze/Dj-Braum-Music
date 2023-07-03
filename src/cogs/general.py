@@ -1,13 +1,12 @@
 """General discord Cog"""
 
+import logging as logger
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from logs import settings
 from src.utils.music_helper import MusicHelper
-
-logger = settings.logging.getLogger(__name__)
 
 
 class General(commands.Cog):
@@ -125,7 +124,9 @@ class General(commands.Cog):
             return await interaction.followup.send(
                 embed=lyrics_embed
             )  ## Display the lyrics embed.
-        except discord.HTTPException:  ## If the lyrics are more than 4096 characters, respond.
+        except (
+            discord.HTTPException
+        ):  ## If the lyrics are more than 4096 characters, respond.
             return await interaction.followup.send(
                 embed=await self.music.lyrics_too_long()
             )

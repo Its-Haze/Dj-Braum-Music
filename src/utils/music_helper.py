@@ -2,6 +2,7 @@
 Music helper module.
 Contains all responses and functions!
 """
+import logging as logger
 import random
 from time import gmtime, strftime
 from typing import Literal, Optional
@@ -12,11 +13,8 @@ import spotipy
 import wavelink
 from spotipy import Spotify, SpotifyClientCredentials, SpotifyException
 
-from logs import settings
 from src.credentials.loader import EnvLoader
 from src.utils.responses import Responses
-
-logger = settings.logging.getLogger(__name__)
 
 
 class MusicHelper(Responses):  # pylint:disable=too-many-instance-attributes

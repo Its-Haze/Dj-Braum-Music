@@ -2,6 +2,7 @@
 This is the function module
 that will be inherited by MusicHelper
 """
+import logging as logger
 import random
 from time import gmtime, strftime
 from typing import Optional
@@ -11,10 +12,7 @@ import spotipy
 import wavelink
 from spotipy import SpotifyException
 
-from logs import settings
 from src.utils.spotify_models import SpotifyTrack
-
-logger = settings.logging.getLogger(__name__)
 
 
 class Functions:  # pylint:disable=too-many-public-methods
@@ -186,7 +184,6 @@ class Functions:  # pylint:disable=too-many-public-methods
         for i, track in enumerate(
             media_tracks["items"], start=0
         ):  ## Loop through all tracks in the playlist/album.
-
             if i == 1 and not await self.get_track(
                 guild
             ):  ## If the first track has been added to queue and nothing else is currently playing.
