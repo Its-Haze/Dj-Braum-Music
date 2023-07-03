@@ -1,13 +1,10 @@
 """
 Just a function for loading all cogs for the client
 """
+import logging as logger
 import os
 
 from discord.ext import commands
-
-from logs import settings
-
-logger = settings.logging.getLogger(__name__)
 
 
 async def cog_loader(client: commands.Bot):
@@ -16,6 +13,7 @@ async def cog_loader(client: commands.Bot):
         if filename.endswith(".py") and not filename.startswith("_"):
             await client.load_extension(f"src.cogs.{filename[:-3]}")
             logger.info(f"Loaded src.cogs.{filename[:-3]}")
+
 
 async def cog_reloader(client: commands.Bot):
     """reload all cogs."""

@@ -1,8 +1,13 @@
 *.pyc
-.env
 .cache
 *.yml
 Dockerfile
 discord.log
 docker-compose.yml
 *.log
+src/credentials/.env
+.env
+.vscode
+.mypy_cache
+venv/
+discord.log

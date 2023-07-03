@@ -1,19 +1,16 @@
 """Discord Cog for all Music commands"""
 import asyncio
+import logging as logger
 import re
-import typing
 
 import discord
 import wavelink
 from discord import app_commands
 from discord.ext import commands
 
-from logs import settings
 from src.essentials.checks import in_same_channel, member_in_voicechannel
 from src.utils.music_helper import MusicHelper
 from src.utils.spotify_models import SpotifyTrack
-
-logger = settings.logging.getLogger(__name__)
 
 
 class Music(commands.Cog):
@@ -34,13 +31,18 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if (
-            not interaction.guild.voice_client
-        ):  ## If user is in a VC and bot is not, join it.
-            await interaction.user.voice.channel.connect(
-                cls=wavelink.Player, self_deaf=True
-            )
-            return await interaction.followup.send(embed=await self.music.in_vc())
+        voice_channel: discord.channel.VocalGuildChannel = (
+            interaction.user.voice.channel  # type:ignore
+        )
+        guild: discord.Guild = interaction.guild  # type:ignore
+
+        logger.info("Joining %s", voice_channel)
+
+        if not guild.voice_client:  # If user is in a VC and bot is not, join it.
+            await voice_channel.connect(cls=wavelink.Player, self_deaf=True)
+
+            embed = await self.music.in_vc()
+            return await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
     @in_same_channel()
@@ -391,7 +393,6 @@ class Music(commands.Cog):
 
         ## If bot is in a VC, empty the queue.
         elif interaction.guild.voice_client:
-
             ## Retrieve the current queue.
             queue = await self.music.get_queue(interaction.guild)
 
@@ -483,7 +484,6 @@ class Music(commands.Cog):
 
         ## If the queue loop is not enabled, enable it.
         if not player.queue_loop:
-
             ## Send the msg before enabling the queue loop to avoid confusing embed titles.
             await interaction.followup.send(
                 embed=await self.music.common_track_actions(None, "Looping the queue")
@@ -570,7 +570,6 @@ class Music(commands.Cog):
 
         ## If a track is playing, add it to the queue.
         if vc.is_playing():
-
             ## Use the modified track.
             await interaction.followup.send(
                 embed=await self.music.added_track(final_track)

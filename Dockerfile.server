@@ -1,0 +1,14 @@
+# Use an official OpenJDK runtime as a parent image
+FROM sapmachine:17.0.7
+
+# Set the working directory in the container to /lavalink
+WORKDIR /lavalink
+
+# Copy the server directory contents into the container at /lavalink
+COPY lavalink/ /lavalink
+
+# Make port 2333 available to the world outside this container
+EXPOSE 2333
+
+# Run Lavalink server when the container launches
+CMD ["java", "-jar", "Lavalink.jar"]

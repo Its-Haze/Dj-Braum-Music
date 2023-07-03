@@ -2,6 +2,7 @@
 This module is meant to represent the Responses class
 that will be used for MusicHelper
 """
+import logging as logger
 import random
 from time import gmtime, strftime
 from typing import Literal, Optional
@@ -14,10 +15,7 @@ import spotipy
 import wavelink as wl
 from spotipy import SpotifyException
 
-from logs import settings
 from src.utils.functions import Functions
-
-logger = settings.logging.getLogger(__name__)
 
 
 class Responses(Functions):  # pylint:disable=too-many-public-methods
@@ -47,6 +45,16 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         embed = self.discord.Embed(
             title="**You are not in a voice channel.**", color=self.err_color
+        )
+        return embed
+
+    async def coult_not_connect(self):
+        """
+        When /join is used but interaction.user is not of the type Interaction.Member.
+        """
+        embed = self.discord.Embed(
+            title="**Sorry, but I couldn't join the voice channel. Please make sure you are connected to a voice channel**",
+            color=self.err_color,
         )
         return embed
 
@@ -154,7 +162,9 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         try:  ## If the track_info already contains spotify info, don't make another request.
             title = track_info.title_url
             track_metadata = track_info
-        except AttributeError:  ## Sometimes the track_info doesn't contain the spotify metadata.
+        except (
+            AttributeError
+        ):  ## Sometimes the track_info doesn't contain the spotify metadata.
             track_metadata = await self.gather_track_info(
                 track_info.title, track_info.author, track_info
             )  ## Modify track info using spotify.
@@ -218,7 +228,6 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         for i, track in enumerate(
             list(queue_info)[:20], start=1
         ):  ## Loop through all items in the queue.
-
             queue_list.append(
                 f"**{i}.** [{track.title}]({track.title_url}) - [{track.author}]({track.author_url})"
             )  ## Add each track to the list.
@@ -277,7 +286,6 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         Used for remove and skipto.
         """
         try:
-
             embed = self.discord.Embed(
                 title=f"**{embed_title} {queue[track_index - 1].title} - {queue[track_index -1].author}.**",
                 color=self.sucess_color,

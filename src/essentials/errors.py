@@ -1,8 +1,6 @@
+import logging as logger
+
 from discord.app_commands import CheckFailure
-
-from logs import settings
-
-logger = settings.logging.getLogger(__name__)
 
 
 class NotConnectedToVoice(CheckFailure):

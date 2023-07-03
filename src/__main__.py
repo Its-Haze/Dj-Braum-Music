@@ -1,19 +1,22 @@
 """Main file to run the Bot from."""
 import asyncio
-import logging.handlers
+import logging as logger
+import os
 import typing
 
 import discord
+import rich
 import wavelink
 from discord.ext import commands
 
-from logs import settings
+from logs.logger import setup_logging
 from src.credentials.loader import EnvLoader
 from src.utils.cogs_loader import cog_loader, cog_reloader
 from src.utils.music_helper import MusicHelper
 
 env_loader = EnvLoader.load_env()
-logger = settings.logging.getLogger("bot")
+setup_logging()
+
 
 ## Default intents are enough as slash commands are used.
 intents = discord.Intents.all()
@@ -27,34 +30,26 @@ client = commands.Bot(
     ),
 )
 
-## Slash commands.
-# slash = app_commands.CommandTree(client)
-# music = MusicHelper()
-# --------------------------------------------
-# @tasks.loop(minutes=5)
-# async def update_status():  ## Updates the bot's status every 5 minutes.
-#     """Updates the bot every five minutes"""
-#     ## Retrieve all the bots servers.
-#     server_count = client.guilds
-#     await client.change_presence(
-#         activity=discord.Activity(
-#             type=discord.ActivityType.playing,
-#             ## Update the status with bot's the guild count.
-#             name=f"music | /play | Supporting {len(server_count)} Servers!",
-#         )
-#     )
-
 
 async def connect_nodes():
     """Connects to the self hosted lavalink server"""
     logger.info("Connecting Nodes")
     await client.wait_until_ready()  ## Wait until the bot is ready.
-    await wavelink.NodePool.create_node(
-        bot=client,
-        host=env_loader.lavalink_host,
-        port=env_loader.lavalink_port,
-        password=env_loader.lavalink_pass,
-    )  ## Connect to the lavalink server.
+    logger.info(
+        "Using Lavalink host:port >> %s:%s",
+        os.getenv("LAVAHOST"),
+        os.getenv("LAVAPORT"),
+    )
+    try:
+        await wavelink.NodePool.create_node(
+            bot=client,
+            host=env_loader.lavalink_host,
+            port=env_loader.lavalink_port,
+            password=env_loader.lavalink_pass,
+        )  ## Connect to the lavalink server.
+    except Exception as esx:
+        logger.exception("Failed to connect to lavalink server")
+        raise esx
 
 
 ### Bot Events
@@ -93,50 +88,64 @@ async def on_guild_join(guild: discord.Guild):
         "There are many more commands to choose from..\n"
         "Type ``/`` and select Dj Braum to list all of my commands"
     )
+    logger.info("Braum has joined %s", guild.name)
+    rich.inspect(guild)
 
-    # Logs that braum has joined a Guild
     logging_channel = client.get_channel(
         int(env_loader.logging_id)
     )  ## Retrieve the logging channel.
+
+    if not isinstance(logging_channel, discord.channel.TextChannel):
+        logger.error("Logging channel is not a text channel")
+        return
+
     await logging_channel.send(
         embed=await MusicHelper.on_joining_guild(guild=guild)
     )  ## Send the log embed.
 
+    # First, try to send message to system channel
     if (
         guild.system_channel
         and guild.system_channel.permissions_for(guild.me).send_messages
     ):
         await guild.system_channel.send(join_msg)
-    else:
-        all_channels = [
-            channel
-            for channel in guild.text_channels
-            if channel.permissions_for(guild.me).send_messages and not channel.is_nsfw()
-        ]
-        if len(all_channels) == 0:
-            try:
-                await guild.owner.send(
-                    "Thanks for inviting Braum.\n\n"
-                    f"It seems like I can't send messages in {guild.name}.\n"
-                    "Please give permissions to send messages in text channels.\n"
-                    "Otherwise i am kinda useless :(\n\n\n"
-                    "When i have permission to send messages in text channels, "
-                    "try to use the ``!help`` command to see what i can do :)."
-                )
-            except discord.Forbidden:
-                logger.error("Guild owner has disabled DM's" * 10)
-        else:
-            valid_channels = [
-                channel
-                for channel in all_channels
-                if "general" in channel.name.lower() or "bot" in channel.name.lower()
-            ]
-            if len(valid_channels) == 0:
-                valid_channel = all_channels[0]
-                await valid_channel.send(join_msg)
-            else:
-                valid_channel = valid_channels[0]
-                await valid_channel.send(join_msg)
+        return  # If successful, we don't need to do anything else
+
+    # If we reach here, system channel is not available, let's find a suitable channel
+    all_channels = [
+        channel
+        for channel in guild.text_channels
+        if channel.permissions_for(guild.me).send_messages and not channel.is_nsfw()
+    ]
+
+    if not all_channels:  # If there's no valid channels
+        try:
+            if not isinstance(guild.owner, discord.Member):
+                logger.error("Guild owner is not a member")
+                return
+
+            await guild.owner.send(
+                "Thanks for inviting Braum.\n\n"
+                f"It seems like I can't send messages in {guild.name}.\n"
+                "Please give permissions to send messages in text channels.\n"
+                "Otherwise i am kinda useless :(\n\n\n"
+                "When i have permission to send messages in text channels, "
+                "try to use the ``!help`` command to see what i can do :)."
+            )
+        except discord.Forbidden:
+            logger.error("Guild owner has disabled DM's" * 10)
+        return  # After sending DM or logging error, exit function
+
+    # If we reach here, there's at least one valid channel
+    valid_channels = [
+        channel
+        for channel in all_channels
+        if "general" in channel.name.lower() or "bot" in channel.name.lower()
+    ]
+
+    # Pick the first 'valid' channel, or if there's none, the first 'all' channel
+    channel_to_send = valid_channels[0] if valid_channels else all_channels[0]
+    await channel_to_send.send(join_msg)
 
 
 @client.event
@@ -154,11 +163,17 @@ async def on_guild_remove(guild: discord.Guild):
     logging_channel = client.get_channel(
         int(env_loader.logging_id)
     )  ## Retrieve the logging channel.
+    if not isinstance(logging_channel, discord.channel.TextChannel):
+        logger.error("Logging channel is not a text channel")
+        return
     await logging_channel.send(
         embed=await MusicHelper.on_leaving_guild(guild=guild)
     )  ## Send the log embed.
 
     try:
+        if not isinstance(guild.owner, discord.Member):
+            logger.error("Guild owner is not a member")
+            return
         await guild.owner.send(leave_msg)
     except discord.Forbidden:
         logger.exception("Guild owner has disabled DM's")
@@ -176,53 +191,58 @@ async def on_voice_state_update(
     - Leaves a voice channel
     - When voice state updates.
     """
+    if not isinstance(client.user, discord.ClientUser):
+        logger.error("User is not a discord.ClientUser object")
+        return
+
     if member.id == client.user.id:
-        if before.channel and after.channel is None:
-            # When the bot is disconnected from a voice channel
-            player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-                guild=member.guild
-            )
-            if player is not None:
-                try:
-                    await player.disconnect()
-                except AttributeError as error:
-                    logger.error(
-                        "Player was unable to be disconnected when kicked out of a channel"
-                    )
-                    raise error
-        elif before.channel is None and after.channel is not None:
-            pass
-            # When the bot connects to a voice channel
-        else:
-            pass
-            # Bot state stays the same
+        await handle_bot_voice_update(before, after, member.guild)
     else:
-        # If someone else joined/left
-        if before.channel and after.channel is None:
-            # When someone disconnects to the voice channel.
-            player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-                guild=member.guild
-            )
-            if player is None:
-                # If the player is not connected to any channel.
-                return
+        await handle_user_voice_update(before, after, member.guild)
 
-            if player.channel.id != before.channel.id:
-                # if the player is connected to another voice channel.
-                return
-            if all(
-                member.bot for member in player.channel.members
-            ):  # If there are no members in the vc, leave.
-                player.queue.clear()  # Clear the queue.
-                await player.stop()  # Stop the currently playing track.
-                await player.disconnect()  # Leave the VC.
 
-        elif before.channel is None and after.channel is not None:
-            # When someone connects to the voice channel
-            pass
-        else:
-            # When the members state stays the same.
-            pass
+async def handle_bot_voice_update(before, after, guild):
+    """
+    Handles the voice state update of the bot.
+    """
+    # When the bot is disconnected from a voice channel
+    if before.channel and not after.channel:
+        player = await get_player(guild)
+
+        if player is not None:
+            try:
+                await player.disconnect()
+            except AttributeError as error:
+                logger.error(
+                    "Player was unable to be disconnected when kicked out of a channel"
+                )
+                raise error
+
+
+async def handle_user_voice_update(before, after, guild):
+    """
+    Handles the voice state update of a user.
+    """
+    # When someone disconnects from the voice channel.
+    if before.channel and not after.channel:
+        player = await get_player(guild)
+
+        if player is None or player.channel.id != before.channel.id:
+            return
+
+        if all(
+            member.bot for member in player.channel.members
+        ):  # If there are no members in the vc, leave.
+            player.queue.clear()  # Clear the queue.
+            await player.stop()  # Stop the currently playing track.
+            await player.disconnect()  # Leave the VC.
+
+
+async def get_player(guild):
+    """
+    Returns the player for the guild.
+    """
+    return wavelink.NodePool.get_node().get_player(guild=guild)
 
 
 ## Sync slash comands.
@@ -286,6 +306,7 @@ async def close(
     """
     await ctx.send("Bot will shutdown soon")
     await client.close()
+
 
 @client.command(name="reload", alias="cogs")
 @commands.guild_only()
