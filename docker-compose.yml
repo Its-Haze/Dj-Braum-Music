@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    volumes:
+      - ./lavalink:/lavalink
+    ports:
+      - 2333:2333
+    env_file:
+      - .env
+    networks:
+      - appnet
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    volumes:
+      - ./src:/code/src
+    depends_on:
+      server:
+        condition: service_started
+    environment:
+      - LAVAHOST=server
+    env_file:
+      - .env
+    networks:
+      - appnet
+
+volumes:
+  dbdata:
+
+
+networks:
+  appnet:
+    driver: bridge
+    name: appnet
