@@ -1,3 +1,6 @@
+"""
+This module contains a function for setting up a logger from a configuration file.
+"""
 import logging.config
 import os
 

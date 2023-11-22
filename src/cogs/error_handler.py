@@ -6,7 +6,7 @@ import wavelink
 from discord.ext import commands
 
 from src.essentials.errors import MustBeSameChannel, NotConnectedToVoice
-from src.utils.music_helper import MusicHelper
+from src.utils.responses import Responses
 
 
 class ErrorHandler(commands.Cog):
@@ -16,8 +16,8 @@ class ErrorHandler(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.music = MusicHelper()
         bot.tree.on_error = self.on_app_command_error
+        self.responses = Responses()
 
     async def on_app_command_error(
         self,
@@ -29,14 +29,16 @@ class ErrorHandler(commands.Cog):
 
         if isinstance(error, NotConnectedToVoice):
             return await interaction.followup.send(
-                embed=await self.music.user_not_in_vc()
+                embed=await self.responses.user_not_in_vc()
             )
         if isinstance(error, MustBeSameChannel):
             player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-                guild=interaction.guild
+                interaction.guild.id
             )
             return await interaction.followup.send(
-                embed=await self.music.already_in_voicechannel(channel=player.channel)
+                embed=await self.responses.already_in_voicechannel(
+                    channel=player.channel
+                )
             )
 
 

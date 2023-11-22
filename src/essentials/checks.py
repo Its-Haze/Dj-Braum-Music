@@ -49,7 +49,7 @@ def player_connected():
 
         logger.info("Checking if Dj Braum is connected to a voice channel")
         player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-            guild=interaction.guild
+            interaction.guild.id
         )
 
         if not player.is_connected:
@@ -83,7 +83,7 @@ def in_same_channel():
             return False
 
         logger.info("Checking if user is in the same voice channel as Dj Braum")
-        player = wavelink.NodePool.get_node().get_player(guild=interaction.guild)
+        player = wavelink.NodePool.get_node().get_player(interaction.guild.id)
         if not isinstance(player, wavelink.Player):
             logger.info(
                 "Dj Braum is not connected to any voice channel, let's connect him"
@@ -97,8 +97,6 @@ def in_same_channel():
                     "Please join to the channel where the bot is connected"
                 )
         except AttributeError as exc:
-            rich.inspect(player)
-            rich.inspect(interaction)
             logger.exception("Player is not connected to any voice channel")
             raise PlayerNotConnected(
                 "Dj Braum is not connected to any voice channel."

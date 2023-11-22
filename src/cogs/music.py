@@ -1,5 +1,4 @@
 """Discord Cog for all Music commands"""
-import asyncio
 import logging as logger
 import re
 
@@ -9,7 +8,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from src.essentials.checks import in_same_channel, member_in_voicechannel
-from src.utils.music_helper import MusicHelper
+from src.utils.functions import Functions
+from src.utils.responses import Responses
 from src.utils.spotify_models import SpotifyTrack
 
 
@@ -20,7 +20,8 @@ class Music(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        self.music = MusicHelper()
+        self.responses = Responses()
+        self.functions = Functions()
 
     @app_commands.command(name="join", description="Braum joins your voice channel.")
     @in_same_channel()
@@ -30,7 +31,6 @@ class Music(commands.Cog):
         /Join command
         """
         await interaction.response.defer()
-
         voice_channel: discord.channel.VocalGuildChannel = (
             interaction.user.voice.channel  # type:ignore
         )
@@ -41,7 +41,7 @@ class Music(commands.Cog):
         if not guild.voice_client:  # If user is in a VC and bot is not, join it.
             await voice_channel.connect(cls=wavelink.Player, self_deaf=True)
 
-            embed = await self.music.in_vc()
+            embed = await self.responses.in_vc()
             return await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
@@ -54,7 +54,7 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         await interaction.guild.voice_client.disconnect()
-        return await interaction.followup.send(embed=await self.music.left_vc())
+        return await interaction.followup.send(embed=await self.responses.left_vc())
 
     @app_commands.command(
         name="pause", description="Braum pauses the currently playing track."
@@ -68,27 +68,27 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         # If the player is already paused, respond
         if player.is_paused():
             return await interaction.followup.send(
-                embed=await self.music.already_paused(track)
+                embed=await self.responses.already_paused(track)
             )
 
         ## If the current track is not paused, pause it.
         await interaction.guild.voice_client.pause()
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Paused")
+            embed=await self.responses.common_track_actions(track, "Paused")
         )
 
     @app_commands.command(
@@ -103,27 +103,27 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         ## If the current track is paused, resume it.
         if player.is_paused():
             await interaction.guild.voice_client.resume()
             return await interaction.followup.send(
-                embed=await self.music.common_track_actions(track, "Resumed")
+                embed=await self.responses.common_track_actions(track, "Resumed")
             )
 
         ## Otherwise, respond.
         return await interaction.followup.send(
-            embed=await self.music.already_resumed(track)
+            embed=await self.responses.already_resumed(track)
         )
 
     @app_commands.command(
@@ -137,21 +137,21 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if not await self.music.get_track(
+        if not await self.functions.get_track(
             interaction.guild
         ):  ## If nothing is playing, respond.
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## If bot is in a VC, stop the currently playing track.
         ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
         await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Stopped")
+            embed=await self.responses.common_track_actions(track, "Stopped")
         )
 
         ## Stop the track after sending the embed.
@@ -169,18 +169,18 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
         await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Skipped")
+            embed=await self.responses.common_track_actions(track, "Skipped")
         )
 
         ## Skip the track after sending the embed.
@@ -193,18 +193,18 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
-        if not await self.music.get_player(
+        if not await self.functions.get_player(
             interaction.guild
-        ) or not await self.music.get_track(interaction.guild):
+        ) or not await self.functions.get_track(interaction.guild):
             ## If nothing is playing, respond.
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Show the queue.
         return await interaction.followup.send(
-            embed=await self.music.show_queue(
-                await self.music.get_queue(interaction.guild), interaction.guild
+            embed=await self.responses.show_queue(
+                await self.functions.get_queue(interaction.guild), interaction.guild
             )
         )
 
@@ -218,34 +218,36 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve the current queue.
-        queue = await self.music.get_queue(interaction.guild)
+        queue = await self.functions.get_queue(interaction.guild)
 
         ## Retrieve the current track.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         ## Retrieve the current player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## If there are no tracks in the queue, respond.
         if len(queue) == 0:
-            return await interaction.followup.send(embed=await self.music.empty_queue())
+            return await interaction.followup.send(
+                embed=await self.responses.empty_queue()
+            )
 
         else:
             ## Shuffle the queue.
-            await self.music.shuffle(queue)
+            await self.functions.shuffle(queue)
 
             ## If the queue loop is not enabled, place the current track at the end of the queue.
             if not player.queue_loop:
                 ## Add the current track to the end of the queue.
                 player.queue.put(track)
             return await interaction.followup.send(
-                embed=await self.music.shuffled_queue()
+                embed=await self.responses.shuffled_queue()
             )
 
     @app_commands.command(
@@ -258,16 +260,18 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve currently playing track's info.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         return await interaction.followup.send(
-            embed=await self.music.display_track(track, interaction.guild, False, True)
+            embed=await self.responses.display_track(
+                track, interaction.guild, False, True
+            )
         )
 
     @app_commands.command(name="volume", description="Braum adjusts the volume.")
@@ -283,21 +287,21 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Volume cannot be greater than 100%.
         if volume_percentage > 100:
             return await interaction.followup.send(
-                embed=await self.music.volume_too_high()
+                embed=await self.responses.volume_too_high()
             )
 
         ## Adjust the volume to the specified percentage.
-        await self.music.modify_volume(interaction.guild, volume_percentage)
+        await self.functions.modify_volume(interaction.guild, volume_percentage)
         return await interaction.followup.send(
-            embed=await self.music.volume_set(volume_percentage)
+            embed=await self.responses.volume_set(percentage=volume_percentage)
         )
 
     @app_commands.command(
@@ -315,27 +319,27 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Store the info beforehand as the track will be removed.
-        remove_msg = await self.music.queue_track_actions(
-            await self.music.get_queue(interaction.guild), track_index, "Removed"
+        remove_msg = await self.responses.queue_track_actions(
+            await self.functions.get_queue(interaction.guild), track_index, "Removed"
         )
 
         ## If the track exists in the queue, respond.
         if remove_msg:
             ## Remove the track.
-            await self.music.remove_track(
-                await self.music.get_queue(interaction.guild), track_index
+            await self.functions.remove_track(
+                await self.functions.get_queue(interaction.guild), track_index
             )
             return await interaction.followup.send(embed=remove_msg)
 
         ## If the track was not removed, respond.
         return await interaction.followup.send(
-            embed=await self.music.track_not_in_queue()
+            embed=await self.responses.track_not_in_queue()
         )
 
     @app_commands.command(
@@ -353,27 +357,27 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Store the info beforehand as the track will be removed.
-        skipped_msg = await self.music.queue_track_actions(
-            await self.music.get_queue(interaction.guild), track_index, "Skipped to"
+        skipped_msg = await self.responses.queue_track_actions(
+            await self.functions.get_queue(interaction.guild), track_index, "Skipped to"
         )
 
         ## If the track exists in the queue, respond.
         if skipped_msg:
             ## Skip to the requested track.
-            await self.music.skipto_track(interaction.guild, track_index)
+            await self.functions.skipto_track(interaction.guild, track_index)
             ## Stop the currently playing track.
             await interaction.guild.voice_client.stop()
             return await interaction.followup.send(embed=skipped_msg)
 
         ## If the track was not skipped, respond.
         return await interaction.followup.send(
-            embed=await self.music.track_not_in_queue()
+            embed=await self.responses.track_not_in_queue()
         )
 
     @app_commands.command(name="empty", description="Braum empties the queue.")
@@ -386,29 +390,29 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## If bot is in a VC, empty the queue.
         elif interaction.guild.voice_client:
             ## Retrieve the current queue.
-            queue = await self.music.get_queue(interaction.guild)
+            queue = await self.functions.get_queue(interaction.guild)
 
             ## Retrieve the player.
-            player = await self.music.get_player(interaction.guild)
+            player = await self.functions.get_player(interaction.guild)
 
             ## If there are no tracks in the queue, respond.
             if len(queue) == 0:
                 return await interaction.followup.send(
-                    embed=await self.music.empty_queue()
+                    embed=await self.responses.empty_queue()
                 )
 
             ## Otherwise, clear the queue.
             player.queue.clear()
             return await interaction.followup.send(
-                embed=await self.music.cleared_queue()
+                embed=await self.responses.cleared_queue()
             )
 
     @app_commands.command(
@@ -423,22 +427,22 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve the player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## Retrieve the currently playing track.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
 
         ## If the loop is not enabled, enable it.
         if not player.loop:
             ## Send the msg before enabling the loop to avoid confusing embed titles.
             await interaction.followup.send(
-                embed=await self.music.common_track_actions(track, "Looping")
+                embed=await self.responses.common_track_actions(track, "Looping")
             )
             player.loop = True
 
@@ -448,7 +452,7 @@ class Music(commands.Cog):
 
         player.loop = False
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(track, "Stopped looping")
+            embed=await self.responses.common_track_actions(track, "Stopped looping")
         )
 
     @app_commands.command(
@@ -463,30 +467,32 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         ## If nothing is playing, respond.
-        if not await self.music.get_track(interaction.guild):
+        if not await self.functions.get_track(interaction.guild):
             return await interaction.followup.send(
-                embed=await self.music.nothing_is_playing()
+                embed=await self.responses.nothing_is_playing()
             )
 
         ## Retrieve the player.
-        player = await self.music.get_player(interaction.guild)
+        player = await self.functions.get_player(interaction.guild)
 
         ## Retrieve the currently playing track.
-        track = await self.music.get_track(interaction.guild)
+        track = await self.functions.get_track(interaction.guild)
         ## Retrieve the current queue.
-        queue = await self.music.get_queue(interaction.guild)
+        queue = await self.functions.get_queue(interaction.guild)
 
         ## If there is less than 1 track in the queue and there is not a current queueloop, respond.
         if len(queue) < 1 and not player.queue_loop:
             return await interaction.followup.send(
-                embed=await self.music.less_than_1_track()
+                embed=await self.responses.less_than_1_track()
             )
 
         ## If the queue loop is not enabled, enable it.
         if not player.queue_loop:
             ## Send the msg before enabling the queue loop to avoid confusing embed titles.
             await interaction.followup.send(
-                embed=await self.music.common_track_actions(None, "Looping the queue")
+                embed=await self.responses.common_track_actions(
+                    None, "Looping the queue"
+                )
             )
             player.queue_loop = True
 
@@ -501,7 +507,7 @@ class Music(commands.Cog):
         player.queue_looped_track = None
 
         return await interaction.followup.send(
-            embed=await self.music.common_track_actions(
+            embed=await self.responses.common_track_actions(
                 None, "Stopped looping the queue"
             )
         )
@@ -532,7 +538,7 @@ class Music(commands.Cog):
         If link is found, it will run /url and validate spotify urls
         """
         await interaction.response.defer()
-
+        logger.info("In Play command.")
         ## If user is in a VC, join it.
 
         if not interaction.guild.voice_client:
@@ -544,27 +550,28 @@ class Music(commands.Cog):
             vc: wavelink.Player = interaction.guild.voice_client
 
         ## If a URL is entered, respond.
-        if re.match(self.music.url_regex, search):
+        if re.match(self.responses.URL_REGEX, search):
             # self.url validates that it is a valid spotify URL
             return await self.url(interaction=interaction, spotify_url=search)
 
         try:
             ## Search for a song.
-            track = await wavelink.YouTubeMusicTrack.search(search, return_first=True)
+            tracks = await wavelink.YouTubeMusicTrack.search(search)
+            track = list(tracks)[0]  # return_first got removed from ytm
         except (
             IndexError,
             TypeError,
         ):
             ## If no results are found or an invalid query was entered, respond.
             return await interaction.followup.send(
-                embed=await self.music.no_track_results()
+                embed=await self.responses.no_track_results()
             )
 
         ## Store the channel id to be used in track_start.
         vc.reply = interaction.channel
 
         ## Modify the track info.
-        final_track = await self.music.gather_track_info(
+        final_track = await self.functions.gather_track_info(
             track.title, track.author, track
         )
 
@@ -572,7 +579,7 @@ class Music(commands.Cog):
         if vc.is_playing():
             ## Use the modified track.
             await interaction.followup.send(
-                embed=await self.music.added_track(final_track)
+                embed=await self.responses.added_track(final_track)
             )
 
             ## Add the modified track to the queue.
@@ -582,8 +589,8 @@ class Music(commands.Cog):
             ## Otherwise, begin playing.
 
             ## Send an ephemeral as now playing is handled by on_track_start.
-            msg = await interaction.followup.send(
-                embed=await self.music.started_playing()
+            await interaction.followup.send(
+                embed=await self.responses.started_playing()
             )
 
             ## Set the loop value to false as we have just started playing.
@@ -601,9 +608,9 @@ class Music(commands.Cog):
             ## Play the modified track.
             await vc.play(final_track)
 
-            ## Delete the message after 5 seconds.
-            await asyncio.sleep(5)
-            return await interaction.followup.delete_message(msg.id)
+            # Delete the message after 5 seconds.
+            # await asyncio.sleep(5)
+            # return await interaction.followup.delete_message(msg.id)
 
     async def url(self, interaction: discord.Interaction, *, spotify_url: str):
         """
@@ -617,7 +624,7 @@ class Music(commands.Cog):
         if (
             "https://open.spotify.com/playlist" in spotify_url
         ):  ## If a spotify playlist url is entered.
-            playlist = await self.music.add_spotify_url(
+            playlist = await self.functions.add_spotify_url(
                 interaction.guild, spotify_url, interaction.channel, "playlist"
             )  ## Add the playlist to the queue.
 
@@ -625,43 +632,43 @@ class Music(commands.Cog):
                 playlist is not None
             ):  ## If the playlist was added to the queue, respond.
                 return await interaction.followup.send(
-                    embed=await self.music.display_playlist(spotify_url)
+                    embed=await self.responses.display_playlist(spotify_url)
                 )  ## Display playlist info.
             else:
                 return await interaction.followup.send(
-                    embed=await self.music.invalid_url()
+                    embed=await self.responses.invalid_url()
                 )
 
         elif (
             "https://open.spotify.com/album" in spotify_url
         ):  ## If a spotify album url is entered.
-            album = await self.music.add_spotify_url(
+            album = await self.functions.add_spotify_url(
                 interaction.guild, spotify_url, interaction.channel, "album"
             )  ## Add the album to the queue.
 
             if album is not None:  ## If the album was added to the queue, respond.
                 return await interaction.followup.send(
-                    embed=await self.music.display_album(spotify_url)
+                    embed=await self.responses.display_album(spotify_url)
                 )  ## Display album info.
             else:
                 return await interaction.followup.send(
-                    embed=await self.music.invalid_url()
+                    embed=await self.responses.invalid_url()
                 )
 
         elif (
             "https://open.spotify.com/track" in spotify_url
         ):  ## If a spotify track url is entered.
-            track = await self.music.add_track(
+            track = await self.functions.add_track(
                 interaction.guild, spotify_url, interaction.channel
             )  ## Add the track to the queue, return tracks info.
 
             if track is not None:  ## If the track was added to the queue, respond.
                 return await interaction.followup.send(
-                    embed=await self.music.added_track(track)
+                    embed=await self.responses.added_track(track)
                 )
             else:
                 return await interaction.followup.send(
-                    embed=await self.music.invalid_url()
+                    embed=await self.responses.invalid_url()
                 )
 
         elif (
@@ -669,12 +676,12 @@ class Music(commands.Cog):
             or "https://open.spotify.com/artist" in spotify_url
         ):  ## Spotify podcasts or artists are not supported.
             return await interaction.followup.send(
-                embed=await self.music.podcasts_not_supported()
+                embed=await self.responses.podcasts_not_supported()
             )
 
         else:  ## Let the user know that only spotify urls work.
             return await interaction.followup.send(
-                embed=await self.music.only_spotify_urls()
+                embed=await self.responses.only_spotify_urls()
             )
 
     @play.autocomplete("search")
@@ -706,7 +713,7 @@ class Music(commands.Cog):
                 )
             ]
 
-        query_searched = await self.music.search_songs(
+        query_searched = await self.functions.search_songs(
             current.lower(),
             category="track",
             limit=limit,
@@ -714,14 +721,14 @@ class Music(commands.Cog):
         # if category == "track" or not category:
         formatted_track_results: list[
             SpotifyTrack
-        ] = await self.music.format_query_search_results_track(
+        ] = await self.functions.format_query_search_results_track(
             search_results=query_searched, limit=limit
         )
         my_tracks = []
 
         for song in formatted_track_results:
-            long_name = f"{song.name} - {song.artists} - {self.music.convert_ms(song.duration_ms)}"
-            short_name = f"{song.name} - {self.music.convert_ms(song.duration_ms)}"
+            long_name = f"{song.name} - {song.artists} - {self.functions.convert_ms(song.duration_ms)}"
+            short_name = f"{song.name} - {self.functions.convert_ms(song.duration_ms)}"
 
             my_tracks.append(
                 app_commands.Choice(
@@ -736,7 +743,7 @@ class Music(commands.Cog):
         # elif category == "album":
         #     formatted_album_results: list[
         #         SpotifyAlbum
-        #     ] = await self.music.format_query_search_results_album(
+        #     ] = await self.responses.format_query_search_results_album(
         #         search_results=query_searched, limit=limit
         #     )
         #     my_albums = []

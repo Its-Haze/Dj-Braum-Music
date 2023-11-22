@@ -1,5 +1,4 @@
 """Credentials Loader"""
-import logging as logger
 import os
 from dataclasses import dataclass
 from typing import Optional

@@ -6,7 +6,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from src.utils.music_helper import MusicHelper
+from src.utils.functions import Functions
+from src.utils.responses import Responses
 
 
 class General(commands.Cog):
@@ -18,7 +19,8 @@ class General(commands.Cog):
 
     def __init__(self, bot) -> None:
         self.bot = bot
-        self.music = MusicHelper()
+        self.responses = Responses()
+        self.functions = Functions()
 
     @app_commands.command(
         name="newreleases",
@@ -31,8 +33,8 @@ class General(commands.Cog):
         await interaction.response.defer()
 
         return await interaction.followup.send(
-            embed=await self.music.display_new_releases(
-                await self.music.get_new_releases()
+            embed=await self.responses.display_new_releases(
+                await self.functions.get_new_releases()
             )
         )  ## Display the trending embed.
 
@@ -46,7 +48,9 @@ class General(commands.Cog):
         await interaction.response.defer()
 
         return await interaction.followup.send(
-            embed=await self.music.display_trending(await self.music.get_trending())
+            embed=await self.responses.display_trending(
+                await self.functions.get_trending()
+            )
         )  ## Display the new releases embed.
 
     @app_commands.command(
@@ -58,7 +62,7 @@ class General(commands.Cog):
         """
         await interaction.response.defer()
 
-        embed, view = await self.music.display_vote()
+        embed, view = await self.responses.display_vote()
 
         return await interaction.followup.send(
             embed=embed, view=view
@@ -71,7 +75,7 @@ class General(commands.Cog):
         """
         await interaction.response.defer()
 
-        embed, view = await self.music.display_support()
+        embed, view = await self.responses.display_support()
 
         return await interaction.followup.send(
             embed=embed, view=view
@@ -84,7 +88,7 @@ class General(commands.Cog):
         """
         await interaction.response.defer()
 
-        embed, view = await self.music.display_invite()
+        embed, view = await self.responses.display_invite()
 
         return await interaction.followup.send(
             embed=embed, view=view
@@ -101,7 +105,7 @@ class General(commands.Cog):
         await interaction.response.defer()
 
         return await interaction.followup.send(
-            embed=await self.music.display_search(search_query)
+            embed=await self.responses.display_search(search_query)
         )  ## Display the invite embed.
 
     @app_commands.command(
@@ -116,8 +120,8 @@ class General(commands.Cog):
             ephemeral=True
         )  ## Send as an ephemeral to avoid clutter.
 
-        lyrics_embed = await self.music.display_lyrics(
-            await self.music.get_lyrics(song_name)
+        lyrics_embed = await self.responses.display_lyrics(
+            await self.functions.get_lyrics(song_name)
         )  ## Retrieve the lyrics and embed it.
 
         try:
@@ -128,7 +132,7 @@ class General(commands.Cog):
             discord.HTTPException
         ):  ## If the lyrics are more than 4096 characters, respond.
             return await interaction.followup.send(
-                embed=await self.music.lyrics_too_long()
+                embed=await self.responses.lyrics_too_long()
             )
 
 

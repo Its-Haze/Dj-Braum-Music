@@ -1,64 +1,70 @@
 """
-This is the function module
-that will be inherited by MusicHelper
+This file contains basic functionalities for AbstractBaseClass and Responses.
 """
 import logging as logger
 import random
 from time import gmtime, strftime
-from typing import Optional
+from typing import Any, Optional
 
-import lyricsgenius
-import spotipy
+import discord
 import wavelink
+from lyricsgenius.types import Song
+from rich import inspect
 from spotipy import SpotifyException
 
+from src.utils.abc import AbstractBaseClass
 from src.utils.spotify_models import SpotifyTrack
 
 
-class Functions:  # pylint:disable=too-many-public-methods
+class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
     """
-    An abstract base class.
-    Holds basic functionalities for MusicHelper and Responses.
+    Contains all functions used in the music cog.
+    Any functionality that is used more than once should be placed here.
     """
 
-    strftime: strftime
-    gmtime: gmtime
-    wavelink: wavelink
-    random: random
-    spotify: spotipy.Spotify
-    trending_uri: Optional[str]
-    spot_exception: SpotifyException
-    genius: lyricsgenius.Genius
-
-    async def format_duration(self, time):
+    async def format_duration(self, time: float) -> str:
         """Returns the time in MM:SS."""
-        return self.strftime("%M:%S", self.gmtime(time))
+        return strftime("%M:%S", gmtime(time))
 
-    async def get_track(self, guild):
+    async def get_track(self, guild: discord.Guild) -> wavelink.tracks.Playable | None:
         """Returns info about the current track."""
-        return self.wavelink.NodePool.get_node().get_player(guild).track
+        player = await self.get_player(guild=guild)
+        if player is None:
+            logger.warn("Ran 'get_track' but got an empty player back.")
+            return None
+        return player.current
 
-    async def get_player(self, guild):
+    async def get_player(self, guild: discord.Guild) -> wavelink.Player | None:
         """Returns player info."""
-        return self.wavelink.NodePool.get_node().get_player(guild)
+        return wavelink.NodePool.get_node().get_player(guild.id)
 
-    async def get_queue(self, guild):
+    async def get_queue(self, guild: discord.Guild) -> wavelink.Queue:
         """Returns the queue."""
-        return (
-            self.wavelink.NodePool.get_node()  # pylint:disable=protected-access
-            .get_player(guild)
-            .queue._queue
-        )
 
-    async def shuffle(self, queue):
+        player = await self.get_player(guild=guild)
+        if player is None:
+            logger.error("Player not found!: method get_queue")
+            return None
+        return player.queue
+
+    async def shuffle(self, queue: wavelink.Queue) -> wavelink.Queue:
         """Shuffles the queue."""
-        return self.random.shuffle(queue)
+        return random.shuffle(queue)
 
-    async def gather_track_info(self, title, artist, track_info):
+    async def gather_track_info(
+        self,
+        title: str,
+        artist: str,
+        track_info: wavelink.YouTubeMusicTrack,
+    ) -> wavelink.YouTubeMusicTrack:
         """Use info from spotify to modify existing track_info."""
         search_results = self.spotify.search(
             q=f"{title} {artist}", limit=1
         )  ## Search spotify for metadata.
+
+        logger.info("Gather track information")
+        inspect(search_results["tracks"]["items"][0])
+
         track_info.title = search_results["tracks"]["items"][0]["name"]
         track_info.title_url = search_results["tracks"]["items"][0]["external_urls"][
             "spotify"
@@ -77,12 +83,18 @@ class Functions:  # pylint:disable=too-many-public-methods
         track_info.release_date = search_results["tracks"]["items"][0]["album"][
             "release_date"
         ]
+        track_info.duration = search_results["tracks"]["items"][0]["duration_ms"]
         return track_info
 
-    async def gather_track_info_cached(self, track_info, track_metadata):
+    async def gather_track_info_cached(
+        self,
+        track_info: wavelink.YouTubeMusicTrack,
+        track_metadata: dict[str, Any],
+    ) -> wavelink.YouTubeMusicTrack:
         """
         Use info from existing spotify results to avoid many requests. Used in /url for tracks.
         """
+
         track_info.title = track_metadata["name"]
         track_info.title_url = track_metadata["external_urls"]["spotify"]
         track_info.author = track_metadata["artists"][0]["name"]
@@ -93,42 +105,62 @@ class Functions:  # pylint:disable=too-many-public-methods
         track_info.release_date = track_metadata["album"]["release_date"]
         return track_info
 
-    async def modify_volume(self, guild, volume: int):
+    async def modify_volume(self, guild: discord.Guild, volume: int) -> None:
         """
-        (1) Retrieve the player.
-        (2) Change the volume.
+        Modifies the volume of the audio player for a given guild.
+
+        Args:
+            guild (discord.Guild): The guild for which to modify the volume.
+            volume (int): The new volume level to set.
+
+        Returns:
+            None.
         """
         player = await self.get_player(guild)
-        return await player.set_volume(volume)
 
-    async def remove_track(self, queue, track_index: int):
+        if isinstance(player, wavelink.Player):
+            await player.set_volume(volume)
+
+        return None
+
+    async def remove_track(self, queue: wavelink.Queue, track_index: int) -> None:
         """
         Remove the track from the queue. 1 is subtracted as the queue starts from 0.
         """
-        return queue.__delitem__(track_index - 1)
+        del queue[track_index - 1]
 
-    async def skipto_track(self, guild, track_index: int):
+    async def skipto_track(
+        self,
+        guild: discord.Guild,
+        track_index: int,
+    ) -> None:
+        """
+        Place a requested track at the front of the queue and remove it from the queue.
+        """
         player = await self.get_player(guild)  ## Retrieve the player.
         queue = await self.get_queue(guild)  ## Retrieve the queue.
-        player.queue.put_at_front(
-            queue[track_index - 1]
-        )  ## Place the requested track at the front of the queue.
-        return queue.__delitem__(track_index)  ## Remove the track from the queue.
+        if isinstance(player, wavelink.Player) and isinstance(queue, wavelink.Queue):
+            player.queue.put_at_front(
+                queue[track_index - 1]
+            )  ## Place the requested track at the front of the queue.
+            del queue[track_index]  ## Remove the track from the queue.
 
-    async def get_new_releases(self):
+    async def get_new_releases(self) -> Any | None:
         """
         Returns 10 newly released tracks from spotify.
         """
-        tracks = self.spotify.new_releases(limit=10)
-        return tracks
+        return self.spotify.new_releases(limit=10)
 
-    async def get_trending(self):
+    async def get_trending(self) -> Any | None:
         """
         Returns 10 tracks in the trending playlist.
         """
         return self.spotify.playlist_tracks(self.trending_uri, limit=10)
 
-    async def playlist_info(self, playlist_url):
+    async def playlist_info(
+        self,
+        playlist_url: str,
+    ) -> Any | None:
         """
         Returns info about the playlist.
         """
@@ -137,14 +169,23 @@ class Functions:  # pylint:disable=too-many-public-methods
         ]  ## Returns only the playlist ID.
         return self.spotify.playlist(playlist_id)
 
-    async def album_info(self, album_url):
+    async def album_info(
+        self,
+        album_url: str,
+    ) -> Any | None:
         """
         Returns info about the album.
         """
         album_id = album_url.split("/")[-1].split("?")[0]  ## Returns only the album ID.
         return self.spotify.album(album_id)
 
-    async def add_spotify_url(self, guild, media_url, channel_id, url_type):
+    async def add_spotify_url(
+        self,
+        guild: discord.Guild,
+        media_url: str,
+        channel_id: int,
+        url_type: str,
+    ) -> bool | None:
         """
         Adds either a spotify playlist or album to the queue.
         """
@@ -152,6 +193,10 @@ class Functions:  # pylint:disable=too-many-public-methods
             0
         ]  ## Returns only the playlist ID.
         player = await self.get_player(guild)  ## Retrieve the player.
+
+        if player is None:
+            logger.error("Player not found!: method add_spotify_url")
+            return None
 
         ## Check whether or not the guild's player contains certain values.
         if not hasattr(player, "reply"):
@@ -162,15 +207,12 @@ class Functions:  # pylint:disable=too-many-public-methods
             player.looped_track = None
             player.queue_looped_track = None
 
-        else:  ## Otherwise, ignore.
-            pass
-
         if url_type == "playlist":
             try:
                 media_tracks = self.spotify.playlist_tracks(
                     media_id
                 )  ## Used to retrieve all tracks in a playlist.
-            except self.spot_exception:  ## If nothing was found, return none.
+            except SpotifyException:  ## If nothing was found, return none.
                 return None
 
         elif url_type == "album":
@@ -178,7 +220,7 @@ class Functions:  # pylint:disable=too-many-public-methods
                 media_tracks = self.spotify.album_tracks(
                     media_id
                 )  ## Used to retrieve all tracks in an album.
-            except self.spot_exception:  ## If nothing was found, return none.
+            except SpotifyException:  ## If nothing was found, return none.
                 return None
 
         for i, track in enumerate(
@@ -196,16 +238,17 @@ class Functions:  # pylint:disable=too-many-public-methods
             try:
                 title = track["track"]["name"]
                 artist = track["track"]["artists"][0]["name"]
-            except KeyError:  ## Spotify albums have different paths.
+            except KeyError:  ## spotify albums have different paths.
                 title = track["name"]
                 artist = track["artists"][0]["name"]
 
-            track_name = f"{title} {artist}"  ## Collect the track name and artist name from spotify.
+            track_name = f"{title} {artist}"  ## Collect the track name and artist name from self.spotify.
 
             try:
-                media = await self.wavelink.YouTubeMusicTrack.search(
-                    track_name, return_first=True
+                medias = await wavelink.YouTubeMusicTrack.search(
+                    track_name
                 )  ## Search for the song in the playlist.
+                media = list(medias)[0]
             except IndexError:  ## If no results were found, skip to the next track.
                 pass
 
@@ -220,7 +263,7 @@ class Functions:  # pylint:disable=too-many-public-methods
 
     async def add_track(self, guild, track_url, channel_id):
         """
-        Adds a spotify track to the queue.
+        Adds a self.spotify track to the queue.
         """
         track_id = track_url.split("/")[-1].split("?")[0]  ## Returns only the track ID.
         player = await self.get_player(guild)  ## Retrieve the player.
@@ -240,7 +283,7 @@ class Functions:  # pylint:disable=too-many-public-methods
 
         try:
             track_info = self.spotify.track(track_id)  ## Retrieve track info.
-        except self.spot_exception:  ## If nothing was found, return none.
+        except SpotifyException:  ## If nothing was found, return none.
             return None
 
         title = track_info["name"]
@@ -250,15 +293,14 @@ class Functions:  # pylint:disable=too-many-public-methods
         )
 
         try:
-            track = await self.wavelink.YouTubeMusicTrack.search(
-                track_name, return_first=True
-            )  ## Search for the song.
+            tracks = await wavelink.YouTubeMusicTrack.search(track_name)
+            track = list(tracks)[0]
         except IndexError:  ## If no results were found, pass.
             pass
 
         final_track = await self.gather_track_info_cached(
             track, track_info
-        )  ## Modify the track info with existing spotify info before adding to the queue.
+        )  ## Modify the track info with existing self.spotify info before adding to the queue.
 
         if await self.get_track(
             guild
@@ -270,26 +312,33 @@ class Functions:  # pylint:disable=too-many-public-methods
             await player.play(final_track)
             return final_track  ## Return the track info required for the added to queue embed.
 
-    async def get_lyrics(self, search_query: str):
+    async def get_lyrics(self, search_query: str) -> Optional[str]:
         """
-        Search for lyrics.
+        Returns the lyrics of a song. If no lyrics are found, return None.
         """
         track = self.genius.search_song(search_query)
 
-        try:
-            return track.lyrics.split("\n", 1)[
-                1
-            ]  ## Delete the first line to remove genius junk.
-        except (AttributeError, IndexError):  ## If no lyrics were found.
-            return "No lyrics found!"
+        if not isinstance(track, Song):
+            logger.error("Lyrics not found!")
+            return None
+
+        logger.info("Lyrics found!")
+        return track.lyrics.split("\n", 1)[1]
 
     async def search_songs(
         self, search_query: str, category: str = "track", limit: int = 10
     ):
         """
-        Returns 10 results from spotify.
-        """
+        Search for songs on Spotify based on a given query.
 
+        Args:
+            search_query (str): The search query to use.
+            category (str, optional): The category of the search. Defaults to "track".
+            limit (int, optional): The maximum number of results to return. Defaults to 10.
+
+        Returns:
+            dict: A dictionary containing the search results.
+        """
         search_results = self.spotify.search(
             q=f"{search_query}", limit=limit, type=category
         )
@@ -297,7 +346,13 @@ class Functions:  # pylint:disable=too-many-public-methods
 
     async def format_search_results(self, search_results):
         """
-        Returns the data in a Title:Album:Artist format.
+        Formats the search results obtained from Spotify API into a string that can be displayed to the user.
+
+        Args:
+        - search_results (dict): A dictionary containing the search results obtained from Spotify API.
+
+        Returns:
+        - str: A formatted string containing the search results.
         """
         all_tracks = [
             (
@@ -315,10 +370,17 @@ class Functions:  # pylint:disable=too-many-public-methods
         limit: int = 5,
     ) -> list[SpotifyTrack]:
         """
-        Returns a list of Spotify Tracks
+        Formats and sorts Spotify track search results.
+
+        Args:
+            search_results (dict): The search results returned by the Spotify API.
+            limit (int, optional): The maximum number of tracks to return. Defaults to 5.
+
+        Returns:
+            list[SpotifyTrack]: A list of SpotifyTrack objects sorted by popularity in descending order.
         """
         formatted_and_sorted_tracks = SpotifyTrack.from_search_results(
-            search_result=search_results.get("tracks").get("items")[:limit],
+            search_result=search_results["tracks"]["items"][:limit],
         )
 
         return sorted(
@@ -333,7 +395,7 @@ class Functions:  # pylint:disable=too-many-public-methods
     #     limit: int = 5,
     # ) -> list[SpotifyAlbum]:
     #     """
-    #     Returns a list of Spotify Albums
+    #     Returns a list of spotify Albums
     #     """
     #     formatted_and_sorted_albums = SpotifyAlbum.from_search_results(
     #         search_result=search_results.get("albums").get("items")[:limit],
@@ -346,7 +408,15 @@ class Functions:  # pylint:disable=too-many-public-methods
     #     )
 
     def convert_ms(self, milliseconds: int) -> str:
-        """Returns milliseconds in minutes and seconds"""
+        """
+        Converts milliseconds to a string in the format of 'minutes:seconds'.
+
+        Args:
+        - milliseconds (int): The number of milliseconds to convert.
+
+        Returns:
+        - str: The converted time in the format of 'minutes:seconds'.
+        """
         _seconds = milliseconds // 1000
         minutes, seconds = divmod(_seconds, 60)
         return f"{minutes}:{seconds if seconds >9 else f'0{seconds}'}"

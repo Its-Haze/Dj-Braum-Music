@@ -1,120 +1,98 @@
 """
-This module is meant to represent the Responses class
-that will be used for MusicHelper
+This module contains the `Responses` class,
+which holds methods for responding to interactions related to music playback.
 """
 import logging as logger
-import random
-from time import gmtime, strftime
-from typing import Literal, Optional
 
-# Need to do this to separate the Response.discord attribute with the module itslf.
-# Otherwise, the @staticmethod won't get type hints.
-import discord as dpy
-import lyricsgenius
-import spotipy
-import wavelink as wl
-from spotipy import SpotifyException
+import discord
+import wavelink
+from rich import inspect
 
 from src.utils.functions import Functions
 
 
 class Responses(Functions):  # pylint:disable=too-many-public-methods
     """
-    Holds methods for responding on interactions.
+    This class contains methods that return Discord embeds
+    for various responses used in the Dj-Braum-Music bot.
     """
 
-    discord: dpy
-    wavelink: wl
-    spotify: spotipy.Spotify
-    spot_exception: SpotifyException
-    genius: lyricsgenius.Genius
-    err_color: Literal
-    sucess_color: Literal
-    trending_uri: Optional[str]
-    vote_url: Optional[str]
-    invite_url: Optional[str]
-    support_url: Optional[str]
-    strftime: strftime
-    gmtime: gmtime
-    random: random
-    url_regex: Literal
-
-    async def user_not_in_vc(self):
+    async def user_not_in_vc(self) -> discord.Embed:
         """
         When /join is used but member is not in a voice channel.
         """
-        embed = self.discord.Embed(
-            title="**You are not in a voice channel.**", color=self.err_color
+        embed = discord.Embed(
+            title="**You are not in a voice channel.**",
+            colour=discord.Colour.red(),
         )
         return embed
 
-    async def coult_not_connect(self):
+    async def coult_not_connect(self) -> discord.Embed:
         """
         When /join is used but interaction.user is not of the type Interaction.Member.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**Sorry, but I couldn't join the voice channel. Please make sure you are connected to a voice channel**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def in_vc(self):
+    async def in_vc(self) -> discord.Embed:
         """
         When /join is used and member is in a voice channel.
         """
-        embed = self.discord.Embed(
-            title="**Joined voice channel.**", color=self.sucess_color
+        return discord.Embed(
+            title="**Joined voice channel.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def already_in_vc(self):
+    async def already_in_vc(self) -> discord.Embed:
         """
         when /join is used while the Client is in a VoiceChannel
         """
-        embed = self.discord.Embed(
-            title="**I am already in a voice channel.**", color=self.err_color
+        return discord.Embed(
+            title="**I am already in a voice channel.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def left_vc(self):
+    async def left_vc(self) -> discord.Embed:
         """
         When the Client leaves a channel
         """
-        embed = self.discord.Embed(
-            title="**Left voice channel.**", color=self.sucess_color
+        return discord.Embed(
+            title="**Left voice channel.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def already_left_vc(self):
+    async def already_left_vc(self) -> discord.Embed:
         """
         when /leave is triggered and the client is not connected
         """
-        embed = self.discord.Embed(
-            title="**I am not in a voice channel.**", color=self.err_color
+        return discord.Embed(
+            title="**I am not in a voice channel.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def nothing_is_playing(self):
+    async def nothing_is_playing(self) -> discord.Embed:
         """
         When nothing is playing
         """
-        embed = self.discord.Embed(
-            title="**Nothing is playing at the moment**.", color=self.err_color
+        return discord.Embed(
+            title="**Nothing is playing at the moment**.",
+            colour=self.err_color,
         )
-        return embed
 
-    async def no_track_results(self):
+    async def no_track_results(self) -> discord.Embed:
         """
         When no tracks were found
         """
-        embed = self.discord.Embed(
-            title="**Unable to find any results!**", color=self.err_color
+        return discord.Embed(
+            title="**Unable to find any results!**",
+            colour=self.err_color,
         )
-        return embed
 
     async def display_track(
         self, track_info, guild_id, is_queued: bool, is_playing: bool
-    ):
+    ) -> discord.Embed:
         """
         Displays the current track.
         """
@@ -123,41 +101,39 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         if (
             not is_queued and player.loop
         ):  ## If the track is not queued and the loop is enabled.
-            embed = self.discord.Embed(
-                title="**Now Playing (Track Loop Enabled)**", color=self.sucess_color
+            embed = discord.Embed(
+                title="**Now Playing (Track Loop Enabled)**", colour=self.sucess_color
             )
 
         elif (
             not is_queued and player.queue_loop
         ):  ## If the track is not queued and the queue loop is enabled.
-            embed = self.discord.Embed(
-                title="**Now Playing (Queue Loop Enabled)**", color=self.sucess_color
+            embed = discord.Embed(
+                title="**Now Playing (Queue Loop Enabled)**", colour=self.sucess_color
             )
 
         elif (
             is_queued and player.loop
         ):  ## If both the track is queued and the loop is enabled.
-            embed = self.discord.Embed(
+            embed = discord.Embed(
                 title="**Queued Track (Another Track Is Looping)**",
-                color=self.sucess_color,
+                colour=self.sucess_color,
             )
 
         elif (
             is_queued and player.queue_loop
         ):  ## If both the track is queued and the queue loop is enabled.
-            embed = self.discord.Embed(
-                title="**Queued Track (Queue Loop Enabled)**", color=self.sucess_color
+            embed = discord.Embed(
+                title="**Queued Track (Queue Loop Enabled)**", colour=self.sucess_color
             )
 
         elif (
             is_queued and not player.loop
         ):  ## If the track is queued and the loop is not enabled.
-            embed = self.discord.Embed(
-                title="**Queued Track**", color=self.sucess_color
-            )
+            embed = discord.Embed(title="**Queued Track**", colour=self.sucess_color)
 
         else:  ## If the track is not queued and the loop is not enabled.
-            embed = self.discord.Embed(title="**Now Playing**", color=self.sucess_color)
+            embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
 
         try:  ## If the track_info already contains spotify info, don't make another request.
             title = track_info.title_url
@@ -168,7 +144,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             track_metadata = await self.gather_track_info(
                 track_info.title, track_info.author, track_info
             )  ## Modify track info using spotify.
-
+        inspect(track_metadata)
         embed.add_field(
             name="Name",
             value=f"[{track_metadata.title}]({track_metadata.title_url})",
@@ -205,16 +181,16 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         embed.set_thumbnail(url=track_metadata.cover_url)
         return embed
 
-    async def started_playing(self):
+    async def started_playing(self) -> discord.Embed:
         """
         When a Session has started
         """
-        embed = self.discord.Embed(
-            title="**Started Session.**", color=self.sucess_color
+        return discord.Embed(
+            title="**Started Session.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def show_queue(self, queue_info, guild_id):
+    async def show_queue(self, queue_info, guild_id) -> discord.Embed:
         """
         Shows the queue
         """
@@ -235,186 +211,186 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         if player.queue_loop:  ## If the queue loop is enabled, change the title.
             title = "**Queue (Queue Loop Enabled)**"
 
-        embed = self.discord.Embed(
+        embed = discord.Embed(
             title=title,
             description="\n".join(queue_list),
-            color=self.sucess_color,
+            colour=self.sucess_color,
         )
 
         embed.set_footer(text="Note: A max of 20 tracks are displayed in the queue.")
         embed.set_thumbnail(url=queue_info[0].cover_url)
         return embed
 
-    async def empty_queue(self):
+    async def empty_queue(self) -> discord.Embed:
         """
         Empties the queue
         """
-        embed = self.discord.Embed(
-            title="**The queue is currently empty.**", color=self.err_color
+        return discord.Embed(
+            title="**The queue is currently empty.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def shuffled_queue(self):
+    async def shuffled_queue(self) -> discord.Embed:
         """
         When the queue has been shuffled
         """
-        embed = self.discord.Embed(
-            title="**Shuffled the queue**.", color=self.sucess_color
+        return discord.Embed(
+            title="**Shuffled the queue**.",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def volume_too_high(self):
+    async def volume_too_high(self) -> discord.Embed:
         """
         When volume has reached 100% and Member tried to increase it.
         """
-        embed = self.discord.Embed(
-            title="**Volume cannot be greater than 100%.**", color=self.err_color
+        return discord.Embed(
+            title="**Volume cannot be greater than 100%.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def volume_set(self, percentage: str):
+    async def volume_set(self, percentage: int) -> discord.Embed:
         """
         Set the volume
         """
-        embed = self.discord.Embed(
-            title=f"**Volume has been set to {percentage}%.**", color=self.sucess_color
+        return discord.Embed(
+            title=f"**Volume has been set to {percentage}%.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def queue_track_actions(self, queue, track_index: int, embed_title: str):
+    async def queue_track_actions(
+        self,
+        queue: list[wavelink.tracks],
+        track_index: int,
+        embed_title: str,
+    ) -> discord.Embed:
         """
         Used for remove and skipto.
         """
         try:
-            embed = self.discord.Embed(
+            embed = discord.Embed(
                 title=f"**{embed_title} {queue[track_index - 1].title} - {queue[track_index -1].author}.**",
-                color=self.sucess_color,
+                colour=self.sucess_color,
             )  ## The track exists in the queue.
 
         except IndexError:  ## If the track was not found in the queue, return False.
-            return False
+            logger.exception("Track not found in queue.")
 
         return embed
 
-    async def common_track_actions(self, track_info, embed_title: str):
+    async def common_track_actions(
+        self,
+        track_info: wavelink.Playable,
+        embed_title: str,
+    ) -> discord.Embed:
         """
         Used for pause, resume, loop, queueloop.
         """
-        if (
-            track_info is None
-        ):  ## If no track info is passed, just display the embed's title. Used in the case of queueloop.
-            embed = self.discord.Embed(
-                title=f"**{embed_title}.**", color=self.sucess_color
-            )
+        if track_info is None:
+            ## If no track info is passed, just display the embed's title.
+            # Used in the case of queueloop.
+            return discord.Embed(title=f"**{embed_title}.**", colour=self.sucess_color)
 
-        else:  ## Otherwise, display both.
-            embed = self.discord.Embed(
-                title=f"**{embed_title} {track_info.title} - {track_info.author}.**",
-                color=self.sucess_color,
-            )
+        return discord.Embed(
+            title=f"**{embed_title} {track_info.title} - {track_info.author}.**",
+            colour=self.sucess_color,
+        )
 
-        return embed
-
-    async def track_not_in_queue(self):
+    async def track_not_in_queue(self) -> discord.Embed:
         """
         When the track is not in a queue.
         """
-        embed = self.discord.Embed(
-            title="**Invalid track number.**", color=self.err_color
+        return discord.Embed(
+            title="**Invalid track number.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def no_tracks_in_queue(self):
+    async def no_tracks_in_queue(self) -> discord.Embed:
         """
         No tracks in the queue.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**There are no more tracks in the queue.**",
-            color=self.discord.Colour.dark_purple(),
+            colour=discord.Colour.dark_purple(),
         )
-        return embed
 
-    async def left_due_to_inactivity(self):
+    async def left_due_to_inactivity(self) -> discord.Embed:
         """
         When the Client has been inactive
         and leaves.
         """
-        embed = self.discord.Embed(
-            title="**Left VC due to inactivity.**", color=self.err_color
+        return discord.Embed(
+            title="**Left VC due to inactivity.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def less_than_1_track(self):
+    async def less_than_1_track(self) -> discord.Embed:
         """
         When there is less than 1 track in queue.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**There needs to be 1 or more tracks in the queue!**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def added_playlist_to_queue(self):
+    async def added_playlist_to_queue(self) -> discord.Embed:
         """
         When a playlist is added to the queue.
         """
-        embed = self.discord.Embed(
-            title="**Added Spotify playlist to the queue.**", color=self.sucess_color
+        return discord.Embed(
+            title="**Added Spotify playlist to the queue.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def cleared_queue(self):
+    async def cleared_queue(self) -> discord.Embed:
         """
         When the queue has been cleared.
         """
-        embed = self.discord.Embed(
-            title="**Emptied the queue.**", color=self.sucess_color
+        return discord.Embed(
+            title="**Emptied the queue.**",
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def invalid_url(self):
+    async def invalid_url(self) -> discord.Embed:
         """
         When the spotify url is invalid.
         """
-        embed = self.discord.Embed(
-            title="**Invalid Spotify URL entered.**", color=self.err_color
+        return discord.Embed(
+            title="**Invalid Spotify URL entered.**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def podcasts_not_supported(self):
+    async def podcasts_not_supported(self) -> discord.Embed:
         """
         When a spotify podcast or artist is provided instead of a track and playlist
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**Spotify podcasts or artists are not supported.**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def added_track(self, track_info):
+    async def added_track(self, track_info) -> discord.Embed:
         """
         When a track is added to the queue
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title=f"**Added {track_info.title} - {track_info.author} to the queue.**",
-            color=self.sucess_color,
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def only_spotify_urls(self):
+    async def only_spotify_urls(self) -> discord.Embed:
         """
         When someone does not put a valid url
         """
-        embed = self.discord.Embed(
-            title="**Only Spotify URLS are supported!**", color=self.err_color
+        return discord.Embed(
+            title="**Only Spotify URLS are supported!**",
+            colour=self.err_color,
         )
-        return embed
 
-    async def display_new_releases(self, new_releases):
+    async def display_new_releases(self, new_releases) -> discord.Embed:
         """
         Shows the top 10 releases
         """
-        embed = self.discord.Embed(title="**New Releases**", color=self.sucess_color)
+        embed = discord.Embed(title="**New Releases**", colour=self.sucess_color)
 
         embed.add_field(
             name="Top 10",  ## Display all the newly released tracks,
@@ -431,20 +407,21 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )  ## Set the thumbnail to the newest track.
         return embed
 
-    async def display_trending(self, trending):
+    async def display_trending(self, trending) -> discord.Embed:
         """
         Shows the top 10 trending songs
         """
-        embed = self.discord.Embed(title="**Trending**", color=self.sucess_color)
+        value = "\n".join(
+            [
+                f"**{i}.** [{item['track']['name']}]({item['track']['external_urls']['spotify']}) - {item['track']['artists'][0]['name']}"
+                for i, item in enumerate(trending["items"], start=1)
+            ]
+        )
+        embed = discord.Embed(title="**Trending**", colour=self.sucess_color)
 
         embed.add_field(
             name="Top 10",  ## Display all the trending tracks,
-            value="\n".join(
-                [
-                    f"**{i}.** [{item['track']['name']}]({item['track']['external_urls']['spotify']}) - {item['track']['artists'][0]['name']}"
-                    for i, item in enumerate(trending["items"], start=1)
-                ]
-            ),
+            value=value,
         )
 
         embed.set_thumbnail(
@@ -452,7 +429,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )  ## Set the thumbnail to the top trending track.
         return embed
 
-    async def display_playlist(self, playlist_url):
+    async def display_playlist(self, playlist_url) -> discord.Embed:
         """
         shows all the tracks from a playlist url
         """
@@ -460,7 +437,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             playlist_url
         )  ## Retrieve info about the playlist.
 
-        embed = self.discord.Embed(title="**Queued Playlist**", color=self.sucess_color)
+        embed = discord.Embed(title="**Queued Playlist**", colour=self.sucess_color)
         embed.add_field(
             name="Name",
             value=f"[{playlist_info['name']}]({playlist_info['external_urls']['spotify']})",
@@ -481,7 +458,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )  ## Set the thumbnail to the playlist's artwork.
         return embed
 
-    async def display_album(self, album_url):
+    async def display_album(self, album_url) -> discord.Embed:
         """
         Displays the album
         """
@@ -489,7 +466,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             album_url
         )  ## Retrieve info about the playlist.
 
-        embed = self.discord.Embed(title="**Queued Album**", color=self.sucess_color)
+        embed = discord.Embed(title="**Queued Album**", colour=self.sucess_color)
         embed.add_field(
             name="Name",
             value=f"[{album_info['name']}]({album_info['external_urls']['spotify']})",
@@ -511,95 +488,104 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )  ## Set the thumbnail to the album's artwork
         return embed
 
-    async def display_vote(self):
+    async def display_vote(self) -> tuple[discord.Embed, discord.ui.View]:
         """
         Used for the vote command.
         """
-        view = self.discord.ui.View()
-        style = self.discord.ButtonStyle.gray
-        item = self.discord.ui.Button(style=style, label="Vote!", url=self.vote_url)
+        view = discord.ui.View()
+        style = discord.ButtonStyle.gray
+        item: discord.ui.Button = discord.ui.Button(
+            style=style,
+            label="Vote!",
+            url=self.vote_url,
+        )
         view.add_item(item=item)
 
-        embed = self.discord.Embed(
-            title="**Click the button below to vote for me!**", color=self.sucess_color
+        embed = discord.Embed(
+            title="**Click the button below to vote for me!**", colour=self.sucess_color
         )
         return embed, view
 
-    async def display_invite(self):
+    async def display_invite(self) -> tuple[discord.Embed, discord.ui.View]:
         """
         Used for the invite command.
         """
-        view = self.discord.ui.View()
-        style = self.discord.ButtonStyle.gray
-        item = self.discord.ui.Button(style=style, label="Invite!", url=self.invite_url)
+        view = discord.ui.View()
+        style = discord.ButtonStyle.gray
+        item: discord.ui.Button = discord.ui.Button(
+            style=style,
+            label="Invite!",
+            url=self.invite_url,
+        )
         view.add_item(item=item)
 
-        embed = self.discord.Embed(
-            title="**Click the button below to invite me!**", color=self.sucess_color
+        embed = discord.Embed(
+            title="**Click the button below to invite me!**",
+            colour=self.sucess_color,
         )
         return embed, view
 
-    async def display_support(self):
+    async def display_support(self) -> tuple[discord.Embed, discord.ui.View]:
         """
         Used for the support command.
         """
-        view = self.discord.ui.View()
-        style = self.discord.ButtonStyle.gray
-        item = self.discord.ui.Button(
-            style=style, label="Support!", url=self.support_url
+        view = discord.ui.View()
+        style = discord.ButtonStyle.gray
+        item: discord.ui.Button = discord.ui.Button(
+            style=style,
+            label="Support!",
+            url=self.support_url,
         )
         view.add_item(item=item)
 
-        embed = self.discord.Embed(
+        embed = discord.Embed(
             title="**Click the button below join my support server!**",
-            color=self.sucess_color,
+            colour=self.sucess_color,
         )
         return embed, view
 
-    async def display_lyrics(self, lyrics):
+    async def display_lyrics(self, lyrics) -> discord.Embed:
         """
         Displays the lyrics.
         """
-        embed = self.discord.Embed(
-            title="Lyrics", description=lyrics, color=self.sucess_color
+        return discord.Embed(
+            title="Lyrics", description=lyrics, colour=self.sucess_color
         )
-        return embed
 
-    async def lyrics_too_long(
-        self,
-    ):
+    async def lyrics_too_long(self) -> discord.Embed:
         """
         When the lyrics are over 4096 characters long.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**The Lyrics in this song are over 4096 characters!**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def log_track_started(self, track, guild_id):
+    async def log_track_started(
+        self, track: wavelink.Playable, guild_id: int
+    ) -> discord.Embed:
         """
         Sends to the dedicated LOG channel.
         >> A track has been added.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title=f"**{track.title} - {track.author} started on Guild: {guild_id}.**",
-            color=self.sucess_color,
+            colour=self.sucess_color,
         )
-        return embed
 
-    async def log_track_finished(self, track, guild_id):
+    async def log_track_finished(
+        self, track: wavelink.Playable, guild_id: int
+    ) -> discord.Embed:
         """
         sends a dedicated LOG message.
         >> A track has finished.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title=f"**{track.title} - {track.author} finished on Guild: {guild_id}.**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def display_search(self, search_query):
+    async def display_search(self, search_query) -> discord.Embed:
         """
         Displays the search results.
         """
@@ -610,10 +596,10 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             search_results
         )  ## Format the search results.
 
-        embed = self.discord.Embed(
+        embed = discord.Embed(
             title="**Search Results**",
             description=formatted_results,
-            color=self.sucess_color,
+            colour=self.sucess_color,
         )
 
         embed.set_thumbnail(
@@ -624,55 +610,64 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
         return embed
 
-    async def already_paused(self, track_info):
+    async def already_paused(self, track_info: wavelink.Playable) -> discord.Embed:
         """
         When the wavelink player is already paused.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title=f"**{track_info.title} - {track_info.author} is already paused!**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
-    async def already_resumed(self, track_info):
+    async def already_resumed(self, track_info) -> discord.Embed:
         """
         When the wavelink player is already resumed.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title=f"**{track_info.title} - {track_info.author} has already been resumed!**",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed
 
     @staticmethod
-    async def on_joining_guild(guild: dpy.Guild):
+    async def on_joining_guild(guild: discord.Guild) -> discord.Embed:
         """
         Embed for when braum joins a server.
         """
-        embed = dpy.Embed(
-            title=f"**BRAUM HAS JOINED** -->, {guild.name}\nOwner is ``@{guild.owner.name}#{guild.owner.discriminator}``\nThis server has {guild.member_count} members!",
-            color=dpy.Colour.green(),
+        title = (
+            f"**BRAUM HAS JOINED** -->, {guild.name}\n"
+            "Owner is ``@{guild.owner.name}#{guild.owner.discriminator}``\n"
+            "This server has {guild.member_count} members!"
         )
-        return embed
+        return discord.Embed(
+            title=title,
+            colour=discord.Colour.green(),
+        )
 
     @staticmethod
-    async def on_leaving_guild(guild: dpy.Guild):
+    async def on_leaving_guild(guild: discord.Guild) -> discord.Embed:
         """
         Embed for when braum leaves a server.
         """
-        embed = dpy.Embed(
-            title=f"**BRAUM HAS LEFT** -->, {guild.name}\nOwner was ``@{guild.owner.name}#{guild.owner.discriminator}``\nThis server had {guild.member_count} members!",
-            color=dpy.Colour.green(),
+        title = (
+            f"**BRAUM HAS LEFT** -->, {guild.name}\n"
+            "Owner was ``@{guild.owner.name}#{guild.owner.discriminator}``\n"
+            "This server had {guild.member_count} members!"
         )
-        return embed
 
-    async def already_in_voicechannel(self, channel: wl.player.VoiceChannel):
+        return discord.Embed(
+            title=title,
+            colour=discord.Colour.green(),
+        )
+
+    async def already_in_voicechannel(
+        self,
+        channel: wavelink.player.VoiceChannel,
+    ) -> discord.Embed:
         """
         When the client is already connected to a voice channel.
         """
-        embed = self.discord.Embed(
+        return discord.Embed(
             title="**Dj braum is already connected to a voice channel!**",
             description=f"Join me here --> <#{channel.id}>",
-            color=self.err_color,
+            colour=self.err_color,
         )
-        return embed

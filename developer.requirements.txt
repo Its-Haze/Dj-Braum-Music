@@ -1,0 +1,6 @@
+# Install the latest.
+# This code is formatted using black, and any profile should be set to that as well.
+mypy
+pylint
+black
+isort
