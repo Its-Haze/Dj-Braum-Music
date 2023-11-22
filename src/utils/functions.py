@@ -22,15 +22,11 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
     Any functionality that is used more than once should be placed here.
     """
 
-    async def format_duration(self, time: float) -> str:
-        """Returns the time in MM:SS."""
-        return strftime("%M:%S", gmtime(time))
-
     async def get_track(self, guild: discord.Guild) -> wavelink.tracks.Playable | None:
         """Returns info about the current track."""
         player = await self.get_player(guild=guild)
         if player is None:
-            logger.warn("Ran 'get_track' but got an empty player back.")
+            logger.warning("Ran 'get_track' but got an empty player back.")
             return None
         return player.current
 
