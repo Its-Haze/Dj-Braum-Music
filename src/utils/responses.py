@@ -164,14 +164,14 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         if is_playing:  ## If /nowplaying is called, show the duration played.
             embed.add_field(
                 name="Duration Played",
-                value=f"{await self.format_duration(player.position)}/{await self.format_duration(track_metadata.duration)}",
+                value=f"{self.convert_ms(player.position)}/{self.convert_ms(track_metadata.duration)}",
                 inline=False,
             )  ## Format the duration's into MM:SS
 
         else:  ## Otherwise, just show the track's duration.
             embed.add_field(
                 name="Duration",
-                value=await self.format_duration(track_metadata.duration),
+                value=self.convert_ms(track_metadata.duration),
                 inline=False,
             )
 

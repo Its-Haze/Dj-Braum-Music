@@ -530,7 +530,7 @@ class Music(commands.Cog):
         interaction: discord.Interaction,
         *,
         search: str,
-        # category: typing.Optional[discord.app_commands.Choice[str]],
+
     ):
         """
         Play command
