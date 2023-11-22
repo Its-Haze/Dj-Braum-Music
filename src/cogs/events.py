@@ -5,7 +5,7 @@ import wavelink
 from discord.ext import commands
 
 from src.credentials.loader import EnvLoader
-from src.utils.music_helper import MusicHelper
+from src.utils.responses import Responses
 
 
 class MusicEvents(commands.Cog):
@@ -17,7 +17,7 @@ class MusicEvents(commands.Cog):
 
     def __init__(self, bot) -> None:
         self.bot = bot
-        self.music = MusicHelper()
+        self.responses = Responses()
         self.env = EnvLoader.load_env()
 
     ### Lavalink Events
@@ -26,16 +26,19 @@ class MusicEvents(commands.Cog):
         """
         Fires when the lavalink server is connected
         """
-        print(f"Node: <{node.identifier}> is ready!")
+        logger.info("Node: <{%s}> is ready!", node.id)
+        logger.info("Node status = %s", node.status)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(
-        self, player: wavelink.Player, track: wavelink.Track, reason
-    ):
+    async def on_wavelink_track_end(self, payload):
         """
         Fires when a track ends.
         """
-        ctx = player.reply  ## Retrieve the guild's channel id.
+
+        player = payload.player
+        ctx = payload.player.reply  ## Retrieve the guild's channel id.
+
+        logger.info("on_wavelink_track_end")
 
         # MOVED TO "VOICE_STATE_UPDATE"
 
@@ -70,31 +73,35 @@ class MusicEvents(commands.Cog):
         else:  ## Otherwise, stop the track.
             await player.stop()
             await ctx.send(
-                embed=await self.music.no_tracks_in_queue(), delete_after=15
+                embed=await self.responses.no_tracks_in_queue(), delete_after=15
             )  ## Let the user know that there are no more tracks in the queue.
 
         logging_channel = self.bot.get_channel(
             int(self.env.logging_id)
         )  ## Retrieve the logging channel.
-        logger.info("Song ended because of reason: %s", reason)
+        logger.info("Song ended because of reason: %s", payload.reason)
         await logging_channel.send(
-            embed=await self.music.log_track_finished(track, player.guild)
+            embed=await self.responses.log_track_finished(payload.track, player.guild)
         )  ## Send the log embed.
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, player: wavelink.Player, track):
+    async def on_wavelink_track_start(
+        self, payload: wavelink.payloads.TrackEventPayload
+    ):
         """
         Fires when a track starts.
         """
-        ctx = player.reply  ## Retrieve the guild's channel id.
+        logger.info("Event: on_wavelink_track_start")
+
+        ctx = payload.player.reply  ## Retrieve the guild's channel id.
 
         if (
-            player.queue_loop
+            payload.player.queue_loop
         ):  ## If the queue loop is enabled, assign queue_looped_track to the current track.
-            player.queue_looped_track = track
+            payload.player.queue_looped_track = payload.track
 
-        embed = await self.music.display_track(
-            track, player.guild, False, False
+        embed = await self.responses.display_track(
+            payload.track, payload.player.guild, False, False
         )  ## Build the track info embed.
         await ctx.send(
             embed=embed, delete_after=60
@@ -104,7 +111,9 @@ class MusicEvents(commands.Cog):
             int(self.env.logging_id)
         )  ## Retrieve the logging channel.
         await logging_channel.send(
-            embed=await self.music.log_track_started(track, player.guild)
+            embed=await self.responses.log_track_started(
+                payload.track, payload.player.guild.id
+            )
         )  ## Send the log embed.
 
 
