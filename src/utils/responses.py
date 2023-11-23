@@ -6,7 +6,6 @@ import logging as logger
 
 import discord
 import wavelink
-from rich import inspect
 
 from src.utils.functions import Functions
 
@@ -144,7 +143,6 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             track_metadata = await self.gather_track_info(
                 track_info.title, track_info.author, track_info
             )  ## Modify track info using spotify.
-        inspect(track_metadata)
         embed.add_field(
             name="Name",
             value=f"[{track_metadata.title}]({track_metadata.title_url})",
@@ -164,7 +162,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         if is_playing:  ## If /nowplaying is called, show the duration played.
             embed.add_field(
                 name="Duration Played",
-                value=f"{self.convert_ms(player.position)}/{self.convert_ms(track_metadata.duration)}",
+                value=f"{self.convert_ms(int(player.position))}/{self.convert_ms(track_metadata.duration)}",
                 inline=False,
             )  ## Format the duration's into MM:SS
 
@@ -259,7 +257,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
 
     async def queue_track_actions(
         self,
-        queue: list[wavelink.tracks],
+        queue: wavelink.Queue,
         track_index: int,
         embed_title: str,
     ) -> discord.Embed:
@@ -562,26 +560,26 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
 
     async def log_track_started(
-        self, track: wavelink.Playable, guild_id: int
+        self, track: wavelink.Playable, guild: str
     ) -> discord.Embed:
         """
         Sends to the dedicated LOG channel.
         >> A track has been added.
         """
         return discord.Embed(
-            title=f"**{track.title} - {track.author} started on Guild: {guild_id}.**",
+            title=f"**{track.title} - {track.author} started on Guild: {guild}.**",
             colour=self.sucess_color,
         )
 
     async def log_track_finished(
-        self, track: wavelink.Playable, guild_id: int
+        self, track: wavelink.Playable, guild: str
     ) -> discord.Embed:
         """
         sends a dedicated LOG message.
         >> A track has finished.
         """
         return discord.Embed(
-            title=f"**{track.title} - {track.author} finished on Guild: {guild_id}.**",
+            title=f"**{track.title} - {track.author} finished on Guild: {guild}.**",
             colour=self.err_color,
         )
 
@@ -635,8 +633,8 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         title = (
             f"**BRAUM HAS JOINED** -->, {guild.name}\n"
-            "Owner is ``@{guild.owner.name}#{guild.owner.discriminator}``\n"
-            "This server has {guild.member_count} members!"
+            f"Owner is ``@{guild.owner.name}``\n"
+            f"This server has {guild.member_count} members!"
         )
         return discord.Embed(
             title=title,
@@ -650,8 +648,8 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         title = (
             f"**BRAUM HAS LEFT** -->, {guild.name}\n"
-            "Owner was ``@{guild.owner.name}#{guild.owner.discriminator}``\n"
-            "This server had {guild.member_count} members!"
+            f"Owner was ``@{guild.owner.name}``\n"
+            f"This server had {guild.member_count} members!"
         )
 
         return discord.Embed(
