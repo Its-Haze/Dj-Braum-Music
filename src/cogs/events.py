@@ -112,7 +112,7 @@ class MusicEvents(commands.Cog):
         )  ## Retrieve the logging channel.
         await logging_channel.send(
             embed=await self.responses.log_track_started(
-                payload.track, payload.player.guild.id
+                payload.track, payload.player.guild
             )
         )  ## Send the log embed.
 

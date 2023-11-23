@@ -171,7 +171,7 @@ class Bot(commands.Bot):
         leave_msg = (
             "I am sorry, but i have to roam to another lane now..\n"
             "It was nice supporting you ❤️\n\n"
-            "If you ever need me again, click on my profile and select ``Add to server``"
+            "If you ever need me again, click on my profile and select ``Add App``"
         )
 
         # Logs that braum has left a Guild
