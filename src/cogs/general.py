@@ -108,20 +108,33 @@ class General(commands.Cog):
             embed=await self.responses.display_search(search_query)
         )  ## Display the invite embed.
 
-    @app_commands.command(
-        name="lyrics", description="Braum finds lyrics for (almost) any song!"
-    )
-    @app_commands.describe(song_name="The name of the song to retrieve lyrics for.")
-    async def lyrics(self, interaction: discord.Interaction, *, song_name: str):
+    async def fetch_lyrics(self, interaction: discord.Interaction):
         """
-        /lyrics command
+        Fetch the lyrics of the current song.
         """
         await interaction.response.defer(
             ephemeral=True
         )  ## Send as an ephemeral to avoid clutter.
 
+        if not (current_track := await self.functions.get_track(interaction.guild)):
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_is_playing()
+            )
+
+        if current_track.source != "spotify":
+            return await interaction.followup.send(
+                embed=await self.responses.display_lyrics_error_only_spotify_song_allowed()
+            )
+
+        lyrics = await self.functions.get_lyrics(current_track)
+
+        if not lyrics:
+            return await interaction.followup.send(
+                embed=await self.responses.lyrics_not_found(current_track)
+            )
+
         lyrics_embed = await self.responses.display_lyrics(
-            await self.functions.get_lyrics(song_name)
+            lyrics, interaction.user
         )  ## Retrieve the lyrics and embed it.
 
         try:
@@ -134,6 +147,15 @@ class General(commands.Cog):
             return await interaction.followup.send(
                 embed=await self.responses.lyrics_too_long()
             )
+
+    @app_commands.command(
+        name="lyrics", description="Will try to fetch the lyrics of the current song."
+    )
+    async def lyrics(self, interaction: discord.Interaction):
+        """
+        Fetch the lyrics of the current song.
+        """
+        await self.fetch_lyrics(interaction)
 
 
 async def setup(bot):

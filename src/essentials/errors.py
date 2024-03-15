@@ -25,3 +25,9 @@ class MustBeInNsfwChannel(CheckFailure):
     """User not in Nsfw channel"""
 
     pass
+
+
+class MissingConnectionPermissions(CheckFailure):
+    """User is not allowed to connect to the voice channel"""
+
+    pass

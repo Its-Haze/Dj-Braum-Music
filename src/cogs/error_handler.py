@@ -1,11 +1,16 @@
 """Discord cog for all Wavelink events"""
+
 import logging as logger
 
 import discord
 import wavelink
 from discord.ext import commands
 
-from src.essentials.errors import MustBeSameChannel, NotConnectedToVoice
+from src.essentials.errors import (
+    MissingConnectionPermissions,
+    MustBeSameChannel,
+    NotConnectedToVoice,
+)
 from src.utils.responses import Responses
 
 
@@ -32,13 +37,17 @@ class ErrorHandler(commands.Cog):
                 embed=await self.responses.user_not_in_vc()
             )
         if isinstance(error, MustBeSameChannel):
-            player: wavelink.Player = wavelink.NodePool.get_node().get_player(
-                interaction.guild.id
+            player: wavelink.Player = (
+                wavelink.Pool().get_node().get_player(interaction.guild.id)
             )
             return await interaction.followup.send(
                 embed=await self.responses.already_in_voicechannel(
                     channel=player.channel
                 )
+            )
+        if isinstance(error, MissingConnectionPermissions):
+            return await interaction.followup.send(
+                embed=await self.responses.no_connection_permissions()
             )
 
 

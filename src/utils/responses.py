@@ -2,12 +2,15 @@
 This module contains the `Responses` class,
 which holds methods for responding to interactions related to music playback.
 """
+
 import logging as logger
+from typing import Any
 
 import discord
 import wavelink
 
 from src.utils.functions import Functions
+from lyricsgenius.types import Song
 
 
 class Responses(Functions):  # pylint:disable=too-many-public-methods
@@ -23,6 +26,40 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         embed = discord.Embed(
             title="**You are not in a voice channel.**",
             colour=discord.Colour.red(),
+        )
+
+        return embed
+
+    async def no_connection_permissions(self) -> discord.Embed:
+        """
+        When user is not permitted to join a voice channel.
+        """
+        embed = discord.Embed(
+            title="**Can't connect to the voice channel. Verify the permissions and try again.**",
+            colour=discord.Colour.red(),
+        )
+        return embed
+
+    async def nightcore_disable(self) -> discord.Embed:
+        """
+        Disable Nightcore, by running the command again.
+        """
+        embed = discord.Embed(
+            title="**Disabling Nightcore mode.**",
+            colour=discord.Colour.green(),
+        )
+        return embed
+
+    async def nightcore_enable(self) -> discord.Embed:
+        """
+        When /nightcore is enabled.
+        """
+        embed = discord.Embed(
+            title="**Enabling Nightcore processing..**",
+            colour=discord.Colour.green(),
+        )
+        embed.set_footer(
+            text="Note: If you want to disable the filter, run the same command again.\nFilters automatically reset when all songs in the queue have been played."
         )
         return embed
 
@@ -50,7 +87,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         return discord.Embed(
             title="**I am already in a voice channel.**",
-            colour=self.err_color,
+            colour=discord.Colour.orange(),
         )
 
     async def left_vc(self) -> discord.Embed:
@@ -68,7 +105,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         return discord.Embed(
             title="**I am not in a voice channel.**",
-            colour=self.err_color,
+            colour=discord.Colour.orange(),
         )
 
     async def nothing_is_playing(self) -> discord.Embed:
@@ -77,6 +114,15 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         return discord.Embed(
             title="**Nothing is playing at the moment**.",
+            colour=self.err_color,
+        )
+
+    async def nothing_in_history(self) -> discord.Embed:
+        """
+        When nothing is in history
+        """
+        return discord.Embed(
+            title="**Nothing in history to display**.",
             colour=self.err_color,
         )
 
@@ -90,93 +136,115 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
 
     async def display_track(
-        self, track_info, guild_id, is_queued: bool, is_playing: bool
+        self,
+        player: wavelink.Player,
+        track: wavelink.Playable,
+        is_queued: bool = False,
+        is_playing: bool = False,
     ) -> discord.Embed:
         """
         Displays the current track.
         """
-        player = await self.get_player(guild_id)  ## Retrieve the player.
 
-        if (
-            not is_queued and player.loop
-        ):  ## If the track is not queued and the loop is enabled.
-            embed = discord.Embed(
-                title="**Now Playing (Track Loop Enabled)**", colour=self.sucess_color
+        # Fetch extra information from spotify if exists.
+        if track.source != "spotify":
+            _search_result = await wavelink.Playable.search(
+                f"{track.title} {track.author}",
+                source="spsearch",
             )
 
-        elif (
-            not is_queued and player.queue_loop
-        ):  ## If the track is not queued and the queue loop is enabled.
-            embed = discord.Embed(
-                title="**Now Playing (Queue Loop Enabled)**", colour=self.sucess_color
-            )
+            track_metadata = _search_result[0]
 
-        elif (
-            is_queued and player.loop
-        ):  ## If both the track is queued and the loop is enabled.
-            embed = discord.Embed(
-                title="**Queued Track (Another Track Is Looping)**",
-                colour=self.sucess_color,
-            )
+        embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
 
-        elif (
-            is_queued and player.queue_loop
-        ):  ## If both the track is queued and the queue loop is enabled.
-            embed = discord.Embed(
-                title="**Queued Track (Queue Loop Enabled)**", colour=self.sucess_color
-            )
+        if any([is_queued, is_playing, player.loop, player.queue_loop]):
+            if (
+                not is_queued and player.loop
+            ):  ## If the track is not queued and the loop is enabled.
+                embed = discord.Embed(
+                    title="**Now Playing (Track Loop Enabled)**",
+                    colour=self.sucess_color,
+                )
 
-        elif (
-            is_queued and not player.loop
-        ):  ## If the track is queued and the loop is not enabled.
-            embed = discord.Embed(title="**Queued Track**", colour=self.sucess_color)
+            elif (
+                not is_queued and player.queue_loop
+            ):  ## If the track is not queued and the queue loop is enabled.
+                embed = discord.Embed(
+                    title="**Now Playing (Queue Loop Enabled)**",
+                    colour=self.sucess_color,
+                )
 
-        else:  ## If the track is not queued and the loop is not enabled.
-            embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
+            elif (
+                is_queued and player.loop
+            ):  ## If both the track is queued and the loop is enabled.
+                embed = discord.Embed(
+                    title="**Queued Track (Another Track Is Looping)**",
+                    colour=self.sucess_color,
+                )
 
-        try:  ## If the track_info already contains spotify info, don't make another request.
-            title = track_info.title_url
-            track_metadata = track_info
-        except (
-            AttributeError
-        ):  ## Sometimes the track_info doesn't contain the spotify metadata.
-            track_metadata = await self.gather_track_info(
-                track_info.title, track_info.author, track_info
-            )  ## Modify track info using spotify.
+            elif (
+                is_queued and player.queue_loop
+            ):  ## If both the track is queued and the queue loop is enabled.
+                embed = discord.Embed(
+                    title="**Queued Track (Queue Loop Enabled)**",
+                    colour=self.sucess_color,
+                )
+
+            elif (
+                is_queued and not player.loop
+            ):  ## If the track is queued and the loop is not enabled.
+                embed = discord.Embed(
+                    title="**Queued Track**", colour=self.sucess_color
+                )
+
+        if not track.uri:
+            meta_uri = track_metadata.uri
         embed.add_field(
             name="Name",
-            value=f"[{track_metadata.title}]({track_metadata.title_url})",
+            value=f"[{track.title}]({track.uri or meta_uri})",
             inline=False,
         )
+        if not track.artist.url:
+            meta_artist_url = track_metadata.artist.url
         embed.add_field(
-            name="Artist",
-            value=f"[{track_metadata.author}]({track_metadata.author_url})",
+            name="Author",
+            value=f"[{track.author}]({track.artist.url or meta_artist_url})",
             inline=False,
         )
+
+        if not track.album.name:
+            meta_album_name = track_metadata.album.name
+        if not track.album.url:
+            meta_album_url = track_metadata.album.url
         embed.add_field(
             name="Album",
-            value=f"[{track_metadata.album}]({track_metadata.album_url})",
+            value=f"[{track.album.name or meta_album_name}]({track.album.url or meta_album_url})",
             inline=False,
         )
 
         if is_playing:  ## If /nowplaying is called, show the duration played.
             embed.add_field(
                 name="Duration Played",
-                value=f"{self.convert_ms(int(player.position))}/{self.convert_ms(track_metadata.duration)}",
+                value=f"{self.convert_ms(int(player.position))}/{self.convert_ms(track.length)}",
                 inline=False,
             )  ## Format the duration's into MM:SS
 
         else:  ## Otherwise, just show the track's duration.
             embed.add_field(
                 name="Duration",
-                value=self.convert_ms(track_metadata.duration),
+                value=self.convert_ms(track.length),
                 inline=False,
             )
 
-        embed.add_field(
-            name="Release Date", value=track_metadata.release_date, inline=False
-        )
-        embed.set_thumbnail(url=track_metadata.cover_url)
+        # Seems like release date is gone..
+        # embed.add_field(
+        #     name="Release Date", value=track.album.release_date, inline=False
+        # )
+        embed.set_thumbnail(url=track.artwork)
+        if track.source != "spotify":
+            embed.set_footer(
+                text="Note: Youtube tracks may not have accurate metadata."
+            )
         return embed
 
     async def started_playing(self) -> discord.Embed:
@@ -188,7 +256,11 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             colour=self.sucess_color,
         )
 
-    async def show_queue(self, queue_info, guild_id) -> discord.Embed:
+    async def show_queue(
+        self,
+        queue_info: list[wavelink.Playable],
+        guild_id,
+    ) -> discord.Embed:
         """
         Shows the queue
         """
@@ -203,7 +275,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             list(queue_info)[:20], start=1
         ):  ## Loop through all items in the queue.
             queue_list.append(
-                f"**{i}.** [{track.title}]({track.title_url}) - [{track.author}]({track.author_url})"
+                f"**{i}.** [{track.title}]({track.uri}) - [{track.author}]({track.artist.url})"
             )  ## Add each track to the list.
 
         if player.queue_loop:  ## If the queue loop is enabled, change the title.
@@ -216,7 +288,43 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
 
         embed.set_footer(text="Note: A max of 20 tracks are displayed in the queue.")
-        embed.set_thumbnail(url=queue_info[0].cover_url)
+        embed.set_thumbnail(url=queue_info[0].artwork)
+        return embed
+
+    async def show_history(
+        self,
+        queue_info: list[wavelink.Playable],
+        interaction: discord.Interaction,
+    ) -> discord.Embed:
+        """
+        Shows the history
+        """
+        history_list = []  ## To store the tracks in the queue.
+        title = "**History (Latest song on top)**"
+
+        if len(queue_info) == 0:  ## If there are no tracks in the queue, respond.
+            return await self.empty_history()
+
+        for i, track in enumerate(
+            list(reversed(queue_info))[:10], start=1
+        ):  ## Loop through all items in the queue.
+            history_list.append(
+                f"**{i}.** [{track.title}]({track.uri}) - [{track.author}]({track.artist.url})",
+            )  ## Add each track to the list.
+
+        embed = discord.Embed(
+            title=title,
+            description="\n".join(history_list),
+            colour=self.sucess_color,
+        )
+
+        embed.set_footer(text="Note: A max of 10 tracks are displayed in the history.")
+        embed.set_thumbnail(url=queue_info[-1].artwork)
+        embed.set_author(
+            name=f"{interaction.user.display_name or interaction.user.name}",
+            icon_url=interaction.user.display_avatar.url or interaction.user.avatar.url,
+        )
+
         return embed
 
     async def empty_queue(self) -> discord.Embed:
@@ -225,7 +333,16 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         return discord.Embed(
             title="**The queue is currently empty.**",
-            colour=self.err_color,
+            colour=discord.Colour.orange(),
+        )
+
+    async def empty_history(self) -> discord.Embed:
+        """
+        Empties the queue
+        """
+        return discord.Embed(
+            title="**The history is currently empty.**",
+            colour=discord.Colour.orange(),
         )
 
     async def shuffled_queue(self) -> discord.Embed:
@@ -366,21 +483,33 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
             colour=self.err_color,
         )
 
-    async def added_track(self, track_info) -> discord.Embed:
+    async def added_track(
+        self,
+        track_info: wavelink.Playable,
+        user: discord.User,
+    ) -> discord.Embed:
         """
         When a track is added to the queue
         """
-        return discord.Embed(
-            title=f"**Added {track_info.title} - {track_info.author} to the queue.**",
+        embed = discord.Embed(
+            # title=f"**Added {track_info.title} - {track_info.author} to the queue.**",
             colour=self.sucess_color,
         )
 
-    async def only_spotify_urls(self) -> discord.Embed:
+        embed.set_author(
+            name=f"{user.display_name or user.name} added {track_info.title} - {track_info.author} to the queue.",
+            icon_url=user.display_avatar.url or user.avatar.url,
+            url=track_info.uri or None,
+        )
+
+        return embed
+
+    async def only_supported_urls(self) -> discord.Embed:
         """
         When someone does not put a valid url
         """
         return discord.Embed(
-            title="**Only Spotify URLS are supported!**",
+            title="**Only Spotify & Youtube Music URLs are supported!**",
             colour=self.err_color,
         )
 
@@ -427,7 +556,85 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )  ## Set the thumbnail to the top trending track.
         return embed
 
-    async def display_playlist(self, playlist_url) -> discord.Embed:
+    async def autosuggestion_trending_spotify(self, trending) -> dict[str, Any]:
+        """
+        Shows the top 10 trending songs in the autocompletion for /play
+        """
+        payload = {}
+        value = "\n".join(
+            [
+                f"**{i}.** [{item['track']['name']}]({item['track']['external_urls']['spotify']}) - {item['track']['artists'][0]['name']}"
+                for i, item in enumerate(trending["items"], start=1)
+            ]
+        )
+
+        for i, item in enumerate(trending["items"], start=1):
+            payload[i] = {
+                "name": item["track"]["name"],
+                "url": item["track"]["external_urls"]["spotify"],
+                "artist": item["track"]["artists"][0]["name"],
+            }
+
+        embed = discord.Embed(title="**Trending**", colour=self.sucess_color)
+
+        embed.add_field(
+            name="Top 10",  ## Display all the trending tracks,
+            value=value,
+        )
+
+        embed.set_thumbnail(
+            url=trending["items"][0]["track"]["album"]["images"][0]["url"]
+        )  ## Set the thumbnail to the top trending track.
+        return embed
+
+    async def display_playlist(
+        self,
+        playlist: wavelink.tracks.Playlist,
+        type: str = "Playlist",
+    ) -> discord.Embed:
+        """
+        Display playlist data
+        """
+
+        embed = discord.Embed(
+            title=f"**Queued {type}**",
+            colour=self.sucess_color,
+        )
+        if playlist.name:
+            if playlist.url:
+                embed.add_field(
+                    name="Name",
+                    value=f"[{playlist.name}]({playlist.url})",
+                    inline=False,
+                )
+            else:
+                embed.add_field(name="Name", value=(f"{playlist.name}"), inline=False)
+
+        if playlist.author:
+            embed.add_field(name="Author", value=f"{playlist.author}", inline=False)
+        else:
+            if playlist.tracks:
+                track = playlist.tracks[0]
+                if track.author:
+                    embed.add_field(
+                        name="Author", value=f"{track.author}", inline=False
+                    )
+        if playlist.tracks:
+            embed.add_field(name="Tracks", value=len(playlist.tracks), inline=False)
+        if playlist.artwork:
+            embed.set_thumbnail(url=playlist.artwork)
+        else:
+            if playlist.tracks:
+                track = playlist.tracks[0]
+                if track.artwork:
+                    embed.set_thumbnail(url=track.artwork)
+
+        embed.set_footer(
+            text="Note: some playlists may not have accurate metadata. Especially if they are from Youtube/Youtube Music."
+        )
+        return embed
+
+    async def _display_playlist(self, playlist_url) -> discord.Embed:
         """
         shows all the tracks from a playlist url
         """
@@ -472,7 +679,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
 
         embed.add_field(
-            name="Artist",
+            name="Author",
             value=f"[{album_info['artists'][0]['name']}]({album_info['artists'][0]['external_urls']['spotify']})",
             inline=False,
         )
@@ -542,12 +749,48 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
         return embed, view
 
-    async def display_lyrics(self, lyrics) -> discord.Embed:
+    async def display_lyrics(
+        self,
+        lyrics: Song,
+        user: discord.User,
+    ) -> discord.Embed:
         """
         Displays the lyrics.
         """
+        description = lyrics.lyrics.split("\n", 1)[1]
+        title = "Lyrics"
+
+        if lyrics.title and lyrics.artist:
+            title = f"{lyrics.title} - {lyrics.artist}"
+
+        embed = discord.Embed(
+            title=title, description=description, colour=self.sucess_color
+        )
+        if lyrics.song_art_image_url:
+            embed.set_thumbnail(url=lyrics.song_art_image_url)
+
+        embed.set_author(
+            name=f"Lyrics requested by {user.display_name or user.name}",
+            icon_url=user.display_avatar.url or user.avatar.url,
+        )
+
+        return embed
+
+    async def lyrics_not_found(self, track: wavelink.Playable) -> discord.Embed:
+        """
+        When the lyrics are not found.
+        """
         return discord.Embed(
-            title="Lyrics", description=lyrics, colour=self.sucess_color
+            title=f"No lyrics found for {track.title} - {track.author}",
+            colour=self.err_color,
+        )
+
+    async def display_lyrics_error_only_spotify_song_allowed(self) -> discord.Embed:
+        """
+        Display an embed saying "Sorry, only Spotify tracks are supported."
+        """
+        return discord.Embed(
+            title="Sorry, only Spotify tracks are supported.", colour=self.err_color
         )
 
     async def lyrics_too_long(self) -> discord.Embed:
@@ -556,6 +799,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         return discord.Embed(
             title="**The Lyrics in this song are over 4096 characters!**",
+            description="The correct lyrics were probably not found..\nPlease be aware that this is an experimental feature and may not work for all songs.",
             colour=self.err_color,
         )
 
@@ -659,7 +903,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
 
     async def already_in_voicechannel(
         self,
-        channel: wavelink.player.VoiceChannel,
+        channel,
     ) -> discord.Embed:
         """
         When the client is already connected to a voice channel.
