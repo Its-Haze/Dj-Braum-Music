@@ -1,4 +1,5 @@
 """Discord Cog for all Music commands"""
+
 import logging as logger
 import re
 
@@ -7,7 +8,11 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
-from src.essentials.checks import in_same_channel, member_in_voicechannel
+from src.essentials.checks import (
+    allowed_to_connect,
+    in_same_channel,
+    member_in_voicechannel,
+)
 from src.utils.functions import Functions
 from src.utils.responses import Responses
 from src.utils.spotify_models import SpotifyTrack
@@ -24,6 +29,7 @@ class Music(commands.Cog):
         self.functions = Functions()
 
     @app_commands.command(name="join", description="Braum joins your voice channel.")
+    @allowed_to_connect()
     @in_same_channel()
     @member_in_voicechannel()
     async def join(self, interaction: discord.Interaction):
@@ -44,6 +50,10 @@ class Music(commands.Cog):
             embed = await self.responses.in_vc()
             return await interaction.followup.send(embed=embed)
 
+        return await interaction.followup.send(
+            embed=await self.responses.already_in_vc()
+        )
+
     @app_commands.command(name="leave", description="Braum leaves your voice channel.")
     @in_same_channel()
     @member_in_voicechannel()
@@ -52,6 +62,11 @@ class Music(commands.Cog):
         /leave command
         """
         await interaction.response.defer()
+        guild: discord.Guild = interaction.guild
+        if not guild.voice_client:  # If bot is not in a VC, respond.
+            return await interaction.followup.send(
+                embed=await self.responses.already_left_vc()
+            )
 
         await interaction.guild.voice_client.disconnect()
         return await interaction.followup.send(embed=await self.responses.left_vc())
@@ -80,13 +95,13 @@ class Music(commands.Cog):
         track = await self.functions.get_track(interaction.guild)
 
         # If the player is already paused, respond
-        if player.is_paused():
+        if player.paused:
             return await interaction.followup.send(
                 embed=await self.responses.already_paused(track)
             )
 
         ## If the current track is not paused, pause it.
-        await interaction.guild.voice_client.pause()
+        await player.pause(not player.paused)
         return await interaction.followup.send(
             embed=await self.responses.common_track_actions(track, "Paused")
         )
@@ -115,8 +130,8 @@ class Music(commands.Cog):
         track = await self.functions.get_track(interaction.guild)
 
         ## If the current track is paused, resume it.
-        if player.is_paused():
-            await interaction.guild.voice_client.resume()
+        if player.paused:
+            await player.pause(not player.paused)
             return await interaction.followup.send(
                 embed=await self.responses.common_track_actions(track, "Resumed")
             )
@@ -184,7 +199,7 @@ class Music(commands.Cog):
         )
 
         ## Skip the track after sending the embed.
-        return await player.stop()
+        return await player.skip()
 
     @app_commands.command(name="queue", description="Braum shows you the queue.")
     async def queue(self, interaction: discord.Interaction):
@@ -206,6 +221,34 @@ class Music(commands.Cog):
             embed=await self.responses.show_queue(
                 await self.functions.get_queue(interaction.guild), interaction.guild
             )
+        )
+
+    @app_commands.command(
+        name="history",
+        description="Braum shows you the history of songs that have been played.",
+    )
+    async def history(self, interaction: discord.Interaction):
+        """
+        /history command
+        """
+        await interaction.response.defer()
+
+        player = await self.functions.get_player(interaction.guild)
+
+        if not hasattr(player, "custom_queue"):
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_in_history()
+            )
+
+        history_tracks: wavelink.Queue = player.custom_queue.history
+        if not history_tracks:
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_in_history()
+            )
+
+        ## Show the queue.
+        return await interaction.followup.send(
+            embed=await self.responses.show_history(list(history_tracks), interaction)
         )
 
     @app_commands.command(name="shuffle", description="Braum shuffles the queue.")
@@ -250,12 +293,10 @@ class Music(commands.Cog):
                 embed=await self.responses.shuffled_queue()
             )
 
-    @app_commands.command(
-        name="nowplaying", description="Braum shows you the currently playing song."
-    )
-    async def nowplaying(self, interaction: discord.Interaction):
+    @app_commands.command(name="nightcore", description="Braum enables nightcore mode.")
+    async def nightcore(self, interaction: discord.Interaction):
         """
-        Displays the currently playing song.
+        /nightcore command sets the filter to a nightcore.
         """
         await interaction.response.defer()
 
@@ -265,13 +306,60 @@ class Music(commands.Cog):
                 embed=await self.responses.nothing_is_playing()
             )
 
+        ## Retrieve the current player.
+        player = await self.functions.get_player(interaction.guild)
+        if not player:
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_is_playing()
+            )
+
+        ## If nightcore mode is already enabled, respond.
+        if hasattr(player, "nightcore") and player.nightcore:
+
+            player.nightcore = False
+            filters: wavelink.Filters = player.filters
+            filters.timescale.reset()
+            await player.set_filters(filters)
+            return await interaction.followup.send(
+                embed=await self.responses.nightcore_disable()
+            )
+
+        ## Enable nightcore mode.
+        player.nightcore = True
+        filters: wavelink.Filters = player.filters
+        filters.timescale.set(pitch=1.2, speed=1.2, rate=1)
+        await player.set_filters(filters)
+        return await interaction.followup.send(
+            embed=await self.responses.nightcore_enable()
+        )
+
+    @app_commands.command(
+        name="nowplaying", description="Braum shows you the currently playing song."
+    )
+    async def nowplaying(self, interaction: discord.Interaction):
+        """
+        Displays the currently playing song.
+        """
+        await interaction.response.defer()
+
+        player = wavelink.Pool().get_node().get_player(interaction.guild.id)
+        if not player:
+            # handle edge cases
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_is_playing()
+            )
+
+        ## If nothing is playing, respond.
+        if not player.playing:
+            return await interaction.followup.send(
+                embed=await self.responses.nothing_is_playing()
+            )
+
         ## Retrieve currently playing track's info.
         track = await self.functions.get_track(interaction.guild)
 
         return await interaction.followup.send(
-            embed=await self.responses.display_track(
-                track, interaction.guild, False, True
-            )
+            embed=await self.responses.display_track(player, track, False, True)
         )
 
     @app_commands.command(name="volume", description="Braum adjusts the volume.")
@@ -514,15 +602,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
     @app_commands.describe(
-        # category="Select a category for your search! | Track, Album, Spotify_Link",
-        search="Enter your spotify search here! / You can also enter a Spotify URL here",
+        search="Search for songs or paste YouTube/Spotify links directly.",
     )
-    # @app_commands.choices(
-    #     category=[
-    #         app_commands.Choice(name="Track", value="track"),
-    #         app_commands.Choice(name="Album", value="album"),
-    #     ]
-    # )
+    @allowed_to_connect()
     @in_same_channel()
     @member_in_voicechannel()
     async def play(
@@ -530,159 +612,124 @@ class Music(commands.Cog):
         interaction: discord.Interaction,
         *,
         search: str,
-
     ):
         """
-        Play command
-        Accepts normal text querys
-        If link is found, it will run /url and validate spotify urls
+        /play command to play a song, album or playlist.
+        If a spotify link is entered, it will be added to the queue.
+        If a track name is entered, it will be searched and added to the queue.
         """
         await interaction.response.defer()
-        logger.info("In Play command.")
-        ## If user is in a VC, join it.
+        logger.info(
+            "/Play command executed with search=(%s), by=(%s), in the guild=(%s)",
+            search,
+            interaction.user,
+            interaction.guild,
+        )
 
-        if not interaction.guild.voice_client:
-            vc: wavelink.Player = await interaction.user.voice.channel.connect(
-                cls=wavelink.Player, self_deaf=True
-            )
-        else:
-            ## Otherwise, initalize voice_client.
-            vc: wavelink.Player = interaction.guild.voice_client
-
-        ## If a URL is entered, respond.
-        if re.match(self.responses.URL_REGEX, search):
-            # self.url validates that it is a valid spotify URL
-            return await self.url(interaction=interaction, spotify_url=search)
-
+        # SEARCH FOR TRACKS
         try:
-            ## Search for a song.
-            tracks = await wavelink.YouTubeMusicTrack.search(search)
-            track = list(tracks)[0]  # return_first got removed from ytm
-        except (
-            IndexError,
-            TypeError,
-        ):
+            found_tracks: wavelink.Search = await wavelink.Playable.search(search)
+        except wavelink.exceptions.LavalinkLoadException as e:
+            logger.warning(
+                "Nothing critical, but searching for tracks failed: %s %s",
+                e,
+                {"search": search},
+                exc_info=True,
+            )
+            logger.info("Sending out [Unable to find any results!] embed")
+            return await interaction.followup.send(
+                embed=await self.responses.no_track_results()
+            )
+        if not found_tracks:
             ## If no results are found or an invalid query was entered, respond.
+            logger.info(
+                "did not find any tracks. Sending out [Unable to find any results!] embed: %s",
+                {"search": search},
+            )
             return await interaction.followup.send(
                 embed=await self.responses.no_track_results()
             )
 
-        ## Store the channel id to be used in track_start.
-        vc.reply = interaction.channel
-
-        ## Modify the track info.
-        final_track = await self.functions.gather_track_info(
-            track.title, track.author, track
-        )
-
-        ## If a track is playing, add it to the queue.
-        if vc.is_playing():
-            ## Use the modified track.
-            await interaction.followup.send(
-                embed=await self.responses.added_track(final_track)
+        # CONNECT TO VOICE CHANNEL
+        if not interaction.guild.voice_client:
+            player: wavelink.Player = await interaction.user.voice.channel.connect(
+                cls=wavelink.Player, self_deaf=True
             )
-
-            ## Add the modified track to the queue.
-            return await vc.queue.put_wait(final_track)
-
         else:
-            ## Otherwise, begin playing.
+            ## Otherwise, initalize voice_client.
+            player: wavelink.Player = interaction.guild.voice_client
 
-            ## Send an ephemeral as now playing is handled by on_track_start.
-            await interaction.followup.send(
-                embed=await self.responses.started_playing()
-            )
+        # INITIALIZE PLAYER ATTRIBUTES
+        player.reply = interaction.channel
+        if not hasattr(player, "loop"):
+            player.loop = False
+        if not hasattr(player, "queue_loop"):
+            player.queue_loop = False
+        if not hasattr(player, "looped_track"):
+            player.looped_track = None
+        if not hasattr(player, "queue_looped_track"):
+            player.queue_looped_track = None
 
-            ## Set the loop value to false as we have just started playing.
-            vc.loop = False
+        if not hasattr(player, "custom_queue"):
+            player.custom_queue = wavelink.Queue(history=True)
 
-            ## Set the queue_loop value to false as we have just started playing.
-            vc.queue_loop = False
+        # Automatically play the next track in the queue.
+        # But not recommendations.
+        if player.autoplay == wavelink.AutoPlayMode.disabled:
+            player.autoplay = wavelink.AutoPlayMode.partial
 
-            ## Used to store the currently playing track in case the user decides to loop.
-            vc.looped_track = None
+        # ADD TRACKS TO QUEUE AND PLAY THEM
+        if not isinstance(found_tracks, wavelink.tracks.Playlist):
+            # A track has been found
+            logger.info("User entered a track. Adding to queue. %s", search)
+            track = found_tracks[0]
+            await player.queue.put_wait(track)
+            if not player.playing:
+                # If nothing is playing, play the song.
+                await player.play(player.queue.get(), volume=50)
 
-            ## Used to re-add the track in a queue loop.
-            vc.queue_looped_track = None
-
-            ## Play the modified track.
-            await vc.play(final_track)
-
-            # Delete the message after 5 seconds.
-            # await asyncio.sleep(5)
-            # return await interaction.followup.delete_message(msg.id)
-
-    async def url(self, interaction: discord.Interaction, *, spotify_url: str):
-        """
-        Validates the URL to check for open.spotify links only
-        Adds the spotify song/album/playlist to the queue
-        """
-
-        if "?" in spotify_url:
-            spotify_url = spotify_url.split("?")[0]
-
-        if (
-            "https://open.spotify.com/playlist" in spotify_url
-        ):  ## If a spotify playlist url is entered.
-            playlist = await self.functions.add_spotify_url(
-                interaction.guild, spotify_url, interaction.channel, "playlist"
-            )  ## Add the playlist to the queue.
-
-            if (
-                playlist is not None
-            ):  ## If the playlist was added to the queue, respond.
-                return await interaction.followup.send(
-                    embed=await self.responses.display_playlist(spotify_url)
-                )  ## Display playlist info.
-            else:
-                return await interaction.followup.send(
-                    embed=await self.responses.invalid_url()
-                )
-
-        elif (
-            "https://open.spotify.com/album" in spotify_url
-        ):  ## If a spotify album url is entered.
-            album = await self.functions.add_spotify_url(
-                interaction.guild, spotify_url, interaction.channel, "album"
-            )  ## Add the album to the queue.
-
-            if album is not None:  ## If the album was added to the queue, respond.
-                return await interaction.followup.send(
-                    embed=await self.responses.display_album(spotify_url)
-                )  ## Display album info.
-            else:
-                return await interaction.followup.send(
-                    embed=await self.responses.invalid_url()
-                )
-
-        elif (
-            "https://open.spotify.com/track" in spotify_url
-        ):  ## If a spotify track url is entered.
-            track = await self.functions.add_track(
-                interaction.guild, spotify_url, interaction.channel
-            )  ## Add the track to the queue, return tracks info.
-
-            if track is not None:  ## If the track was added to the queue, respond.
-                return await interaction.followup.send(
-                    embed=await self.responses.added_track(track)
-                )
-            else:
-                return await interaction.followup.send(
-                    embed=await self.responses.invalid_url()
-                )
-
-        elif (
-            "https://open.spotify.com/show" in spotify_url
-            or "https://open.spotify.com/artist" in spotify_url
-        ):  ## Spotify podcasts or artists are not supported.
             return await interaction.followup.send(
-                embed=await self.responses.podcasts_not_supported()
+                embed=await self.responses.added_track(track, interaction.user)
             )
 
-        else:  ## Let the user know that only spotify urls work.
-            return await interaction.followup.send(
-                embed=await self.responses.only_spotify_urls()
+        # ADD PLAYLIST TO QUEUE AND PLAY IT
+        logger.info("Playlist found")
+        playlist = found_tracks  # just for clarity
+        tracks: wavelink.Playable = playlist.tracks
+        logger.info(
+            "Playlist detected, Adding tracks to queue, %s",
+            {
+                "name": playlist.name,
+                "author": playlist.author,
+                "type": playlist.type,
+                "url": playlist.url,
+            },
+        )
+        for i, track in enumerate(tracks):
+            logger.info(
+                "Adding track to queue: %s",
+                {
+                    "source": track.source,
+                    "title": track.title,
+                    "identifier": track.identifier,
+                },
             )
+            await player.queue.put_wait(track)
+            if i == 1 and not player.playing:
+                await player.play(player.queue.get(), volume=50)
+
+        return await interaction.followup.send(
+            embed=(
+                await self.responses.display_playlist(
+                    playlist,
+                    type=(
+                        "Playlist"
+                        if playlist.type and playlist.type == "playlist"
+                        else "Album"
+                    ),
+                )
+            )
+        )
 
     @play.autocomplete("search")
     async def play_autocomplete(
@@ -695,22 +742,44 @@ class Music(commands.Cog):
         clickable options appear and spotify link the linked value
         """
         limit = 7
-        # category = interaction.namespace.category
-        not_found_choice = [
-            app_commands.Choice(
-                name="The only song you should listen to!",
-                value="https://open.spotify.com/track/6ctO0maVSlFzn31wR0GpNg",
-            )
-        ]
 
         if current.strip() == "":
-            return not_found_choice
-        if "https://" in current.lower().strip():
+            # When no search query has been entered, display trending songs.
+            try:
+                trending: dict = await self.functions.get_trending()
+
+                trending_choice: list[SpotifyTrack] = SpotifyTrack.from_search_results(
+                    [track["track"] for track in trending["items"]]
+                )
+            except Exception as e:
+                logger.error("Error getting trending songs: %s", e, exc_info=True)
+
+            if not trending_choice:
+                return [
+                    app_commands.Choice(
+                        name="The only song you should listen to!",
+                        value="https://open.spotify.com/track/6ctO0maVSlFzn31wR0GpNg",
+                    ),
+                ]
+
+            my_tracks = self.format_songs_to_autocomplete(trending_choice)
+            return my_tracks
+
+        if "https://" in current.lower().strip() and not (
+            "open.spotify.com" in current.lower() or "youtube.com" in current.lower()
+        ):
             return [
                 app_commands.Choice(
-                    name="Spotify URL's are supported!",
+                    name="Only Youtube and Spotify links are supported!",
                     value=current,
                 )
+            ]
+        elif "https://" in current.lower().strip():
+            return [
+                app_commands.Choice(
+                    name=current,
+                    value=current,
+                ),
             ]
 
         query_searched = await self.functions.search_songs(
@@ -718,11 +787,10 @@ class Music(commands.Cog):
             category="track",
             limit=limit,
         )
-        # if category == "track" or not category:
-        formatted_track_results: list[
-            SpotifyTrack
-        ] = await self.functions.format_query_search_results_track(
-            search_results=query_searched, limit=limit
+        formatted_track_results: list[SpotifyTrack] = (
+            await self.functions.format_query_search_results_track(
+                search_results=query_searched, limit=limit
+            )
         )
         my_tracks = []
 
@@ -738,27 +806,29 @@ class Music(commands.Cog):
             )
         return my_tracks
 
-        # DEPRECATED :: ALBUM SEARCHES.
+    def format_songs_to_autocomplete(
+        self,
+        trending_choice: list[SpotifyTrack],
+        sorted_by_popularity: bool = True,
+    ) -> list[app_commands.Choice]:
 
-        # elif category == "album":
-        #     formatted_album_results: list[
-        #         SpotifyAlbum
-        #     ] = await self.responses.format_query_search_results_album(
-        #         search_results=query_searched, limit=limit
-        #     )
-        #     my_albums = []
-        #     for album in formatted_album_results:
-        #         long_name = (
-        #             f"{album.name} - {album.artists} - tracks: {album.total_tracks}"
-        #         )
-        #         short_name = f"{album.name} - tracks: {album.total_tracks}"
-        #         my_albums.append(
-        #             app_commands.Choice(
-        #                 name=long_name if len(long_name) < 100 else short_name,
-        #                 value=album.external_urls,
-        #             )
-        #         )
-        #     return my_albums
+        if sorted_by_popularity:
+            trending_choice = self.functions.sort_spotify_tracks_by_popularity(
+                trending_choice
+            )
+
+        my_tracks: app_commands.Choice = []
+        for song in trending_choice:
+            long_name = f"{song.name} - {song.artists} - {self.functions.convert_ms(song.duration_ms)}"
+            short_name = f"{song.name} - {self.functions.convert_ms(song.duration_ms)}"
+
+            my_tracks.append(
+                app_commands.Choice(
+                    name=long_name if len(long_name) < 100 else short_name,
+                    value=song.external_urls,
+                )
+            )
+        return my_tracks
 
 
 async def setup(bot):

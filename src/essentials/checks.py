@@ -4,15 +4,16 @@ They will raise an error if condition is not met.
 
 They will be used as decorators for common commands.
 """
+
 import logging as logger
 
 import discord
-import rich
 import wavelink
 from discord import app_commands
 from discord.ext import commands
 
 from src.essentials.errors import (
+    MissingConnectionPermissions,
     MustBeInNsfwChannel,
     MustBeSameChannel,
     NotConnectedToVoice,
@@ -28,9 +29,12 @@ def member_in_voicechannel():
             logger.info("%s is not a member", interaction.user)
             return False
 
-        logger.info("Checking if %s is connected to a voice channel", interaction.user)
+        logger.debug("Checking if %s is connected to a voice channel", interaction.user)
         if not interaction.user.voice:  ## If user is not in a VC, respond.
-            logger.info("%s is not connected to a voice channel", interaction.user)
+            logger.info(
+                "%s is not connected to a voice channel but still tried to start a song. Permission denied. (User must be connected to a voice channel to use this command)",
+                interaction.user,
+            )
             raise NotConnectedToVoice("You are not connected to a voice channel!")
         return True
 
@@ -48,7 +52,10 @@ def player_connected():
             return False
 
         logger.info("Checking if Dj Braum is connected to a voice channel")
-        player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+        # player: wavelink.Player = wavelink.NodePool.get_node().get_player(
+        #     interaction.guild.id
+        # )
+        player: wavelink.Player = wavelink.Pool.get_node().get_player(
             interaction.guild.id
         )
 
@@ -82,10 +89,11 @@ def in_same_channel():
             logger.info("%s is not connected to a voice channel", interaction.user)
             return False
 
-        logger.info("Checking if user is in the same voice channel as Dj Braum")
-        player = wavelink.NodePool.get_node().get_player(interaction.guild.id)
+        logger.debug("Checking if user is in the same voice channel as Dj Braum")
+        # player = wavelink.NodePool.get_node().get_player(interaction.guild.id)
+        player = wavelink.Pool.get_node().get_player(interaction.guild.id)
         if not isinstance(player, wavelink.Player):
-            logger.info(
+            logger.debug(
                 "Dj Braum is not connected to any voice channel, let's connect him"
             )
             return True
@@ -101,7 +109,7 @@ def in_same_channel():
             raise PlayerNotConnected(
                 "Dj Braum is not connected to any voice channel."
             ) from exc
-        logger.info("User is in the same voice channel as Dj Braum")
+        logger.debug("User is in the same voice channel as Dj Braum")
         return True
 
     return app_commands.check(predicate)
@@ -150,13 +158,26 @@ def allowed_to_connect():
             logger.info("%s is not connected to a voice channel", interaction.user)
             return False
 
-        if (
-            interaction.user.voice.channel.permissions_for(interaction.guild.me)
-            == discord.Permissions.connect
-        ):
+        permissions = interaction.user.voice.channel.permissions_for(
+            interaction.guild.me
+        )
+        if not (permissions.connect):
+
             logger.info(
-                "Client has permissions to join the current members voice channel"
+                "Insufficient Permissions to join the voice channel, data: %s",
+                {
+                    "user": interaction.user,
+                    "guild": interaction.guild,
+                    "channel": interaction.user.voice.channel,
+                    "Permission": {
+                        "connect": interaction.user.voice.channel.permissions_for(
+                            interaction.guild.me
+                        ).connect
+                    },
+                },
             )
-            return True
+            raise MissingConnectionPermissions()
+
+        return True
 
     return app_commands.check(predicate)

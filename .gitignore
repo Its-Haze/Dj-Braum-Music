@@ -7,3 +7,4 @@ discord.log
 .mypy_cache
 venv/
 discord.log
+lavalink/application.yml

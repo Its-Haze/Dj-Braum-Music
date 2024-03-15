@@ -2,6 +2,7 @@
 Music helper module.
 Contains all responses and functions!
 """
+
 from typing import Final, Optional
 
 import discord
@@ -27,12 +28,12 @@ class AbstractBaseClass:  # pylint:disable=too-many-instance-attributes
     invite_url: Optional[str]
     support_url: Optional[str]
 
-    URL_REGEX: Final[
-        str
-    ] = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
-    URL_REGEX_HTTPS: Final[
-        str
-    ] = r"/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#()?&//=]*)/"
+    URL_REGEX: Final[str] = (
+        r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
+    )
+    URL_REGEX_HTTPS: Final[str] = (
+        r"/https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#()?&//=]*)/"
+    )
 
     def __init__(self):
         self.env = EnvLoader.load_env()

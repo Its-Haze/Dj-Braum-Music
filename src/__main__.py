@@ -14,7 +14,6 @@ import typing
 import discord
 import wavelink
 from discord.ext import commands
-from wavelink.ext import spotify
 
 from logs.logger import setup_logging
 from src.credentials.loader import EnvLoader
@@ -54,16 +53,21 @@ class Bot(commands.Bot):
             os.getenv("LAVAHOST"),
             os.getenv("LAVAPORT"),
         )
-        sc = spotify.SpotifyClient(
-            client_id=env_loader.spotify_client_id,
-            client_secret=env_loader.spotify_client_secret,
-        )
         try:
-            node: wavelink.Node = wavelink.Node(
-                uri=f"{env_loader.lavalink_host}:{env_loader.lavalink_port}",
+            # Use node_local for local testing.
+            # node_local: wavelink.Node = wavelink.Node(
+            #     uri=f"http://localhost:2333",
+            #     password="youshallnotpass",
+            # )
+            node_docker: wavelink.Node = wavelink.Node(
+                uri=f"http://{env_loader.lavalink_host}:{env_loader.lavalink_port}",
                 password=env_loader.lavalink_pass,
             )
-            await wavelink.NodePool.connect(client=self, nodes=[node], spotify=sc)
+
+            await wavelink.Pool.connect(
+                nodes=[node_docker],
+                client=self,
+            )
         except Exception as esx:
             logger.exception("Failed to connect to lavalink server")
             raise esx
@@ -253,7 +257,7 @@ class Bot(commands.Bot):
         """
         Returns the player for the guild.
         """
-        return wavelink.NodePool.get_node().get_player(guild_id)
+        return wavelink.Pool().get_node().get_player(guild_id)
 
 
 async def main():

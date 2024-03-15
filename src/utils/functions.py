@@ -1,6 +1,7 @@
 """
 This file contains basic functionalities for AbstractBaseClass and Responses.
 """
+
 import logging as logger
 import random
 from time import gmtime, strftime
@@ -9,7 +10,7 @@ from typing import Any, Optional
 import discord
 import wavelink
 from lyricsgenius.types import Song
-from rich import inspect
+
 from spotipy import SpotifyException
 
 from src.utils.abc import AbstractBaseClass
@@ -22,7 +23,7 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
     Any functionality that is used more than once should be placed here.
     """
 
-    async def get_track(self, guild: discord.Guild) -> wavelink.tracks.Playable | None:
+    async def get_track(self, guild: discord.Guild) -> wavelink.Playable | None:
         """Returns info about the current track."""
         player = await self.get_player(guild=guild)
         if player is None:
@@ -32,7 +33,8 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
 
     async def get_player(self, guild: discord.Guild) -> wavelink.Player | None:
         """Returns player info."""
-        return wavelink.NodePool.get_node().get_player(guild.id)
+        # return wavelink.NodePool.get_node().get_player(guild.id)
+        return wavelink.Pool.get_node().get_player(guild.id)
 
     async def get_queue(self, guild: discord.Guild) -> wavelink.Queue:
         """Returns the queue."""
@@ -46,60 +48,6 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
     async def shuffle(self, queue: wavelink.Queue) -> wavelink.Queue:
         """Shuffles the queue."""
         return random.shuffle(queue)
-
-    async def gather_track_info(
-        self,
-        title: str,
-        artist: str,
-        track_info: wavelink.YouTubeMusicTrack,
-    ) -> wavelink.YouTubeMusicTrack:
-        """Use info from spotify to modify existing track_info."""
-        search_results = self.spotify.search(
-            q=f"{title} {artist}", limit=1
-        )  ## Search spotify for metadata.
-
-        logger.info("Gather track information")
-        inspect(search_results["tracks"]["items"][0])
-
-        track_info.title = search_results["tracks"]["items"][0]["name"]
-        track_info.title_url = search_results["tracks"]["items"][0]["external_urls"][
-            "spotify"
-        ]
-        track_info.author = search_results["tracks"]["items"][0]["artists"][0]["name"]
-        track_info.author_url = search_results["tracks"]["items"][0]["artists"][0][
-            "external_urls"
-        ]["spotify"]
-        track_info.album = search_results["tracks"]["items"][0]["album"]["name"]
-        track_info.album_url = search_results["tracks"]["items"][0]["album"][
-            "external_urls"
-        ]["spotify"]
-        track_info.cover_url = search_results["tracks"]["items"][0]["album"]["images"][
-            0
-        ]["url"]
-        track_info.release_date = search_results["tracks"]["items"][0]["album"][
-            "release_date"
-        ]
-        track_info.duration = search_results["tracks"]["items"][0]["duration_ms"]
-        return track_info
-
-    async def gather_track_info_cached(
-        self,
-        track_info: wavelink.YouTubeMusicTrack,
-        track_metadata: dict[str, Any],
-    ) -> wavelink.YouTubeMusicTrack:
-        """
-        Use info from existing spotify results to avoid many requests. Used in /url for tracks.
-        """
-
-        track_info.title = track_metadata["name"]
-        track_info.title_url = track_metadata["external_urls"]["spotify"]
-        track_info.author = track_metadata["artists"][0]["name"]
-        track_info.author_url = track_metadata["artists"][0]["external_urls"]["spotify"]
-        track_info.album = track_metadata["album"]["name"]
-        track_info.album_url = track_metadata["album"]["external_urls"]["spotify"]
-        track_info.cover_url = track_metadata["album"]["images"][0]["url"]
-        track_info.release_date = track_metadata["album"]["release_date"]
-        return track_info
 
     async def modify_volume(self, guild: discord.Guild, volume: int) -> None:
         """
@@ -175,151 +123,42 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
         album_id = album_url.split("/")[-1].split("?")[0]  ## Returns only the album ID.
         return self.spotify.album(album_id)
 
-    async def add_spotify_url(
+    async def search_spotify_track(self, url: str) -> wavelink.Playable | None:
+        """
+        Search for a track on Spotify based on a given URL.
+        If no track is found, return None.
+
+        Defaults to YouTube for non URL based queries.
+        """
+        # If spotify is enabled via LavaSrc, this will automatically fetch Spotify tracks if you pass a URL...
+        # LavaSrc needs to be configured to use Spotify API. Check application.yml for more details.
+        # Defaults to YouTube for non URL based queries...
+        tracks = await wavelink.Playable.search(url)
+        if not tracks:
+            logger.warning("User used an invalid track URL for spotify.%s", url)
+            return None
+        track = list(tracks)[0]
+        return track
+
+    async def get_lyrics(
         self,
-        guild: discord.Guild,
-        media_url: str,
-        channel_id: int,
-        url_type: str,
-    ) -> bool | None:
-        """
-        Adds either a spotify playlist or album to the queue.
-        """
-        media_id = media_url.split("/")[-1].split("?")[
-            0
-        ]  ## Returns only the playlist ID.
-        player = await self.get_player(guild)  ## Retrieve the player.
-
-        if player is None:
-            logger.error("Player not found!: method add_spotify_url")
-            return None
-
-        ## Check whether or not the guild's player contains certain values.
-        if not hasattr(player, "reply"):
-            ## Define the same values as in the play command since the player attributes do not exist yet.
-            player.reply = channel_id
-            player.loop = False
-            player.queue_loop = False
-            player.looped_track = None
-            player.queue_looped_track = None
-
-        if url_type == "playlist":
-            try:
-                media_tracks = self.spotify.playlist_tracks(
-                    media_id
-                )  ## Used to retrieve all tracks in a playlist.
-            except SpotifyException:  ## If nothing was found, return none.
-                return None
-
-        elif url_type == "album":
-            try:
-                media_tracks = self.spotify.album_tracks(
-                    media_id
-                )  ## Used to retrieve all tracks in an album.
-            except SpotifyException:  ## If nothing was found, return none.
-                return None
-
-        for i, track in enumerate(
-            media_tracks["items"], start=0
-        ):  ## Loop through all tracks in the playlist/album.
-            if i == 1 and not await self.get_track(
-                guild
-            ):  ## If the first track has been added to queue and nothing else is currently playing.
-                next_track = await player.queue.get_wait()  ## Retrieve the queue.
-                await player.play(
-                    next_track
-                )  ## Immediatley play the first track to avoid waiting for the entire queue to be loaded.
-                player.looped_track = next_track
-
-            try:
-                title = track["track"]["name"]
-                artist = track["track"]["artists"][0]["name"]
-            except KeyError:  ## spotify albums have different paths.
-                title = track["name"]
-                artist = track["artists"][0]["name"]
-
-            track_name = f"{title} {artist}"  ## Collect the track name and artist name from self.spotify.
-
-            try:
-                medias = await wavelink.YouTubeMusicTrack.search(
-                    track_name
-                )  ## Search for the song in the playlist.
-                media = list(medias)[0]
-            except IndexError:  ## If no results were found, skip to the next track.
-                pass
-
-            final_track = await self.gather_track_info(
-                media.title, media.author, media
-            )  ## Modify the playlist track info with spotify before adding to the queue.
-
-            await player.queue.put_wait(
-                final_track
-            )  ## Add the playlist/album to the queue.
-        return True  ## Return true to avoid conflicts with SpotifyException.
-
-    async def add_track(self, guild, track_url, channel_id):
-        """
-        Adds a self.spotify track to the queue.
-        """
-        track_id = track_url.split("/")[-1].split("?")[0]  ## Returns only the track ID.
-        player = await self.get_player(guild)  ## Retrieve the player.
-        queue = await self.get_queue(guild)  ## Retreieve the queue.
-
-        if not hasattr(
-            player, "reply"
-        ):  ## Check whether or not the guild's player contains certain values.
-            player.reply = channel_id  ## Define the same values as in the play command since the player attributes do not exist yet.
-            player.loop = False
-            player.queue_loop = False
-            player.looped_track = None
-            player.queue_looped_track = None
-
-        else:  ## Otherwise, ignore.
-            pass
-
-        try:
-            track_info = self.spotify.track(track_id)  ## Retrieve track info.
-        except SpotifyException:  ## If nothing was found, return none.
-            return None
-
-        title = track_info["name"]
-        artist = track_info["artists"][0]["name"]
-        track_name = (
-            f"{title} {artist}"  ## Collect the track name and artist name from spotify.
-        )
-
-        try:
-            tracks = await wavelink.YouTubeMusicTrack.search(track_name)
-            track = list(tracks)[0]
-        except IndexError:  ## If no results were found, pass.
-            pass
-
-        final_track = await self.gather_track_info_cached(
-            track, track_info
-        )  ## Modify the track info with existing self.spotify info before adding to the queue.
-
-        if await self.get_track(
-            guild
-        ):  ## If something is currently playing, add the track to the queue.
-            await player.queue.put_wait(final_track)  ## Add the track to the queue.
-            return final_track  ## Return the track info required for the added to queue embed.
-
-        else:  ## Otherwise play it now.
-            await player.play(final_track)
-            return final_track  ## Return the track info required for the added to queue embed.
-
-    async def get_lyrics(self, search_query: str) -> Optional[str]:
+        track: wavelink.Playable,
+    ) -> Optional[Song]:
         """
         Returns the lyrics of a song. If no lyrics are found, return None.
+        Expecting track to be of source "spotify" only.
         """
-        track = self.genius.search_song(search_query)
+        self.genius.verbose = True
+        lyrics = self.genius.search_song(track.title, artist=track.author)
 
-        if not isinstance(track, Song):
-            logger.error("Lyrics not found!")
+        if not isinstance(lyrics, Song):
+            logger.debug(
+                "Lyrics not found! track=(%s), artist=(%s)", track.title, track.author
+            )
             return None
 
-        logger.info("Lyrics found!")
-        return track.lyrics.split("\n", 1)[1]
+        logger.info("Lyrics found! track=(%s), artist=(%s)", track.title, track.author)
+        return lyrics
 
     async def search_songs(
         self, search_query: str, category: str = "track", limit: int = 10
@@ -379,6 +218,11 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
             search_result=search_results["tracks"]["items"][:limit],
         )
 
+        return self.sort_spotify_tracks_by_popularity(formatted_and_sorted_tracks)
+
+    def sort_spotify_tracks_by_popularity(
+        self, formatted_and_sorted_tracks: list[SpotifyTrack]
+    ) -> list[SpotifyTrack]:
         return sorted(
             formatted_and_sorted_tracks,
             key=lambda fl: fl.popularity,
