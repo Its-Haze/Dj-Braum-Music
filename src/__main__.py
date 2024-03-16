@@ -19,6 +19,7 @@ from logs.logger import setup_logging
 from src.credentials.loader import EnvLoader
 from src.utils.cogs_loader import cog_loader, cog_reloader
 from src.utils.responses import Responses
+from rich import inspect
 
 env_loader = EnvLoader.load_env()
 setup_logging()
@@ -26,8 +27,12 @@ setup_logging()
 
 class Bot(commands.Bot):
     def __init__(self) -> None:
-        intents = discord.Intents.all()
-        intents.message_content = True
+        # intents = discord.Intents.all()
+        # intents.message_content = True
+        intents = discord.Intents.none()
+        intents.guilds = True
+        intents.voice_states = True
+
         command_prefix = "$$$"
         help_command = None
         activity = discord.Activity(
@@ -90,23 +95,21 @@ class Bot(commands.Bot):
     async def on_guild_join(self, guild: discord.Guild):
         """When braum joins a guild it adds that guild and a default server prefix to database"""
         join_msg = (
-            "I Am Braum!, Your Personal Support!!\n\n"
-            "To start playing music, just use my slash commands!\n"
-            "``/play`` | Accepts song title's, spotify links (Songs, Albums, Artists)\n"
-            "``/queue`` | Shows all the songs that are in queue\n"
-            "``/remove`` | Removes a song from the queue based on their position (run /queue first)\n"
-            "``/empty`` | Removes all songs from the queue\n"
-            "``/loop`` | Loops the current playing song\n"
-            "``/queueloop`` | Loops the whole queue\n"
-            "``/shuffle`` | Shuffles the queue\n\n"
-            "There are many more commands to choose from..\n"
-            "Type ``/`` and select Dj Braum to list all of my commands"
+            "🎵 Dj Braum, your personal support is here! 🎶\n\n"
+            "Ready to dive into endless tunes? Start by using my slash commands. Simply type ``/play`` followed by a song title, YouTube, or Spotify link (including songs, albums, and playlists) to get started.\n\n"
+            "Looking for more? I've got plenty of commands to enhance your listening experience. Just type ``/`` and choose Dj Braum to explore all the possibilities.\n\n"
+            "And there's more - as songs play, you'll see interactive buttons to control your music effortlessly. Don't miss out on the 🚀``For You`` feature! Activate Braum AI, and I'll keep the music going based on your session's history, ensuring there's never a dull moment. Your queued songs always get priority, seamlessly blending with AI recommendations for the perfect mix.\n"
+            "Let's make every moment musical! 🎉"
         )
-        logger.info("Braum has joined %s", guild.name)
+        logger.info(
+            "Braum has joined %s, this guild has %s members",
+            guild.name,
+            guild.member_count,
+        )
 
         # Logs that braum has joined a Guild to a logging channel.
-        if env_loader.logging_id:
-            logging_channel = self.get_channel(int(env_loader.logging_id))
+        if env_loader.joined_left_channel_id:
+            logging_channel = self.get_channel(int(env_loader.joined_left_channel_id))
             logger.info("Logging channel is %s", logging_channel)
 
             if isinstance(logging_channel, discord.channel.TextChannel):
@@ -118,7 +121,7 @@ class Bot(commands.Bot):
                     "Was not able to send a logging message for [on_guild_join]."
                     "Logging channel is not a text channel."
                 )
-
+        inspect(guild)
         # First, try to send message to system channel
         if (
             guild.system_channel
@@ -172,30 +175,22 @@ class Bot(commands.Bot):
         """
         Triggers when the Client leaves the Guild
         """
-        leave_msg = (
-            "I am sorry, but i have to roam to another lane now..\n"
-            "It was nice supporting you ❤️\n\n"
-            "If you ever need me again, click on my profile and select ``Add App``"
+        logger.info(
+            "Braum has left %s, this guild had %s members",
+            guild.name,
+            guild.member_count,
         )
-
         # Logs that braum has left a Guild
         logging_channel = self.get_channel(
-            int(env_loader.logging_id)
+            int(env_loader.joined_left_channel_id)
         )  ## Retrieve the logging channel.
         if not isinstance(logging_channel, discord.channel.TextChannel):
             logger.error("Logging channel is not a text channel")
             return
+
         await logging_channel.send(
             embed=await Responses.on_leaving_guild(guild=guild)
         )  ## Send the log embed.
-
-        try:
-            if not isinstance(guild.owner, discord.Member):
-                logger.error("Guild owner is not a member")
-                return
-            await guild.owner.send(leave_msg)
-        except discord.Forbidden:
-            logger.exception("Guild owner has disabled DM's")
 
     async def on_voice_state_update(
         self,
