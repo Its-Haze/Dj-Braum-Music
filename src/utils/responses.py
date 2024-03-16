@@ -877,7 +877,6 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         title = (
             f"**BRAUM HAS JOINED** -->, {guild.name}\n"
-            f"Owner is ``@{guild.owner.name}``\n"
             f"This server has {guild.member_count} members!"
         )
         return discord.Embed(
@@ -892,13 +891,12 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         title = (
             f"**BRAUM HAS LEFT** -->, {guild.name}\n"
-            f"Owner was ``@{guild.owner.name}``\n"
             f"This server had {guild.member_count} members!"
         )
 
         return discord.Embed(
             title=title,
-            colour=discord.Colour.green(),
+            colour=discord.Colour.red(),
         )
 
     async def already_in_voicechannel(

@@ -1,4 +1,5 @@
 """Credentials Loader"""
+
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -33,6 +34,9 @@ class EnvLoader:  # pylint:disable=too-many-instance-attributes
     # Logging Channel
     logging_id: Optional[str]
 
+    # Joined / left channel logging
+    joined_left_channel_id: Optional[str]
+
     # Genius
     genius: Optional[str]
 
@@ -57,6 +61,7 @@ class EnvLoader:  # pylint:disable=too-many-instance-attributes
                 "spotify_client_secret": os.getenv("SPOTCLIENT"),
                 "spotify_trending_id": os.getenv("SPOTIFY_TRENDING_ID"),
                 "logging_id": os.getenv("LOGID"),
+                "joined_left_channel_id": os.getenv("JOINED_LEFT_CHANNEL_ID"),
                 "genius": os.getenv("GENIUSKEY"),
             }
         )
