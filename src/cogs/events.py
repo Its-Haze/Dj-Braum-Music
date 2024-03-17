@@ -56,7 +56,7 @@ class MusicEvents(commands.Cog):
             await player.set_filters(filters)
 
         # Cleanup the "now playing" message that was sent in "track_start" event.
-        if player.now_playing_message:
+        if hasattr(player, "now_playing_message") and player.now_playing_message:
             try:
                 await player.now_playing_message.delete()
             except discord.errors.NotFound:
@@ -100,7 +100,8 @@ class MusicEvents(commands.Cog):
             return
 
         embed = await self.responses.display_track(
-            player, payload.track, False, False
+            player,
+            payload.track,
         )  ## Build the track info embed.
 
         if hasattr(player, "reply"):
@@ -112,8 +113,6 @@ class MusicEvents(commands.Cog):
                     view.previous.disabled = True
 
             view.for_you.style = discord.ButtonStyle.grey
-            # view.for_you.emoji = "<a:TC_LoveThrow:1033365482855739443>"
-            # view.for_you.emoji = "<:tickno:736964199883997255>" # red cross
             view.for_you.emoji = "🚀"
 
             if player.autoplay == wavelink.AutoPlayMode.enabled:
@@ -122,13 +121,18 @@ class MusicEvents(commands.Cog):
 
             reply: discord.interactions.InteractionChannel = player.reply
 
-            message = await reply.send(
-                embed=embed,
-                view=view,
-                delete_after=track.length / 1000,
-            )
+            try:
+                message = await reply.send(
+                    embed=embed,
+                    view=view,
+                    delete_after=track.length / 1000,
+                )
 
-            player.now_playing_message = message
+                player.now_playing_message = message
+            except discord.errors.Forbidden:
+                logger.warning(
+                    "Tried to send a message to a channel where the bot has no permissions.\n Buttons might now show correctly.."
+                )
 
         logging_channel = self.bot.get_channel(
             int(self.env.logging_id)
