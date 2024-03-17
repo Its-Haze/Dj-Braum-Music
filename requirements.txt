@@ -1,6 +1,7 @@
 # Required installs.. The bot will not work properly without these
 discord.py==2.3.2
-wavelink==3.2.0
+#wavelink==3.2.0 # Temporarily disabled until the library is updated to >=3.2.0
+git+https://github.com/PythonistaGuild/Wavelink.git@66a1c9dd759ef7bcd54ed55185ade91c0d51b455
 spotipy==2.22.1
 python-dotenv==1.0.0
 PyNaCl==1.5.0

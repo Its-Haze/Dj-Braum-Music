@@ -43,7 +43,7 @@ class Functions(AbstractBaseClass):  # pylint:disable=too-many-public-methods
         if player is None:
             logger.error("Player not found!: method get_queue")
             return None
-        return player.queue
+        return player.queue or player.auto_queue
 
     async def shuffle(self, queue: wavelink.Queue) -> wavelink.Queue:
         """Shuffles the queue."""

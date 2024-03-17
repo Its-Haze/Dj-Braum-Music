@@ -63,6 +63,30 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         )
         return embed
 
+    async def for_you_enabled(self) -> discord.Embed:
+        """
+        When For You is enabled.
+        """
+        embed = discord.Embed(
+            title="✨ **Braum AI Enabled!** ✨",
+            description="🚀 Braum will keep the music flowing with songs tailored to your session's vibe.\nThe more you listen, the more personalized your playlist becomes.\nEnjoy a musical journey tailored by Braum, just for you!",
+            colour=discord.Colour.green(),
+        )
+        embed.set_footer(
+            text="Note: Your songs will take priority over the AI's suggestions."
+        )
+        return embed
+
+    async def for_you_disabled(self) -> discord.Embed:
+        """
+        When For You is disabled.
+        """
+        return discord.Embed(
+            title="**Braum AI Disabled.**",
+            description="Braum will no longer play songs tailored to your session's vibe.",
+            colour=discord.Colour.red(),
+        )
+
     async def coult_not_connect(self) -> discord.Embed:
         """
         When /join is used but interaction.user is not of the type Interaction.Member.
@@ -139,8 +163,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         self,
         player: wavelink.Player,
         track: wavelink.Playable,
-        is_queued: bool = False,
-        is_playing: bool = False,
+        is_playing: bool = False,  # if executed from /nowplaying command
     ) -> discord.Embed:
         """
         Displays the current track.
@@ -157,45 +180,16 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
 
         embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
 
-        if any([is_queued, is_playing, player.loop, player.queue_loop]):
-            if (
-                not is_queued and player.loop
-            ):  ## If the track is not queued and the loop is enabled.
-                embed = discord.Embed(
-                    title="**Now Playing (Track Loop Enabled)**",
-                    colour=self.sucess_color,
-                )
-
-            elif (
-                not is_queued and player.queue_loop
-            ):  ## If the track is not queued and the queue loop is enabled.
-                embed = discord.Embed(
-                    title="**Now Playing (Queue Loop Enabled)**",
-                    colour=self.sucess_color,
-                )
-
-            elif (
-                is_queued and player.loop
-            ):  ## If both the track is queued and the loop is enabled.
-                embed = discord.Embed(
-                    title="**Queued Track (Another Track Is Looping)**",
-                    colour=self.sucess_color,
-                )
-
-            elif (
-                is_queued and player.queue_loop
-            ):  ## If both the track is queued and the queue loop is enabled.
-                embed = discord.Embed(
-                    title="**Queued Track (Queue Loop Enabled)**",
-                    colour=self.sucess_color,
-                )
-
-            elif (
-                is_queued and not player.loop
-            ):  ## If the track is queued and the loop is not enabled.
-                embed = discord.Embed(
-                    title="**Queued Track**", colour=self.sucess_color
-                )
+        if player.queue.mode == wavelink.QueueMode.loop:
+            embed = discord.Embed(
+                title="**Now Playing (Track Loop Enabled)**",
+                colour=self.sucess_color,
+            )
+        elif player.queue.mode == wavelink.QueueMode.loop_all:
+            embed = discord.Embed(
+                title="**Now Playing (Queue Loop Enabled)**",
+                colour=self.sucess_color,
+            )
 
         if not track.uri:
             meta_uri = track_metadata.uri
@@ -236,10 +230,6 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
                 inline=False,
             )
 
-        # Seems like release date is gone..
-        # embed.add_field(
-        #     name="Release Date", value=track.album.release_date, inline=False
-        # )
         embed.set_thumbnail(url=track.artwork)
         if track.source != "spotify":
             embed.set_footer(
@@ -278,7 +268,9 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
                 f"**{i}.** [{track.title}]({track.uri}) - [{track.author}]({track.artist.url})"
             )  ## Add each track to the list.
 
-        if player.queue_loop:  ## If the queue loop is enabled, change the title.
+        if (
+            player.queue.mode == wavelink.QueueMode.loop_all
+        ):  ## If the queue loop is enabled, change the title.
             title = "**Queue (Queue Loop Enabled)**"
 
         embed = discord.Embed(
@@ -332,7 +324,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         Empties the queue
         """
         return discord.Embed(
-            title="**The queue is currently empty.**",
+            title="**The queue is currently empty.\nBut if you want continues flow of music, try 'For You' **",
             colour=discord.Colour.orange(),
         )
 
@@ -394,19 +386,19 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
 
     async def common_track_actions(
         self,
-        track_info: wavelink.Playable,
+        playable: wavelink.Playable,
         embed_title: str,
     ) -> discord.Embed:
         """
         Used for pause, resume, loop, queueloop.
         """
-        if track_info is None:
+        if playable is None:
             ## If no track info is passed, just display the embed's title.
             # Used in the case of queueloop.
             return discord.Embed(title=f"**{embed_title}.**", colour=self.sucess_color)
 
         return discord.Embed(
-            title=f"**{embed_title} {track_info.title} - {track_info.author}.**",
+            title=f"**{embed_title} {playable.title} - {playable.author}.**",
             colour=self.sucess_color,
         )
 

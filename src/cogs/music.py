@@ -359,7 +359,7 @@ class Music(commands.Cog):
         track = await self.functions.get_track(interaction.guild)
 
         return await interaction.followup.send(
-            embed=await self.responses.display_track(player, track, False, True)
+            embed=await self.responses.display_track(player, track, True)
         )
 
     @app_commands.command(name="volume", description="Braum adjusts the volume.")
@@ -514,34 +514,30 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
+        ## Retrieve the player.
+        player: wavelink.Player = await self.functions.get_player(interaction.guild)
+
         ## If nothing is playing, respond.
-        if not await self.functions.get_track(interaction.guild):
+        if not player.playing:  # includes paused.
             return await interaction.followup.send(
                 embed=await self.responses.nothing_is_playing()
             )
 
-        ## Retrieve the player.
-        player = await self.functions.get_player(interaction.guild)
-
         ## Retrieve the currently playing track.
         track = await self.functions.get_track(interaction.guild)
 
-        ## If the loop is not enabled, enable it.
-        if not player.loop:
-            ## Send the msg before enabling the loop to avoid confusing embed titles.
-            await interaction.followup.send(
+        if player.queue.mode == wavelink.QueueMode.loop:
+            player.queue.mode = wavelink.QueueMode.normal
+            return await interaction.followup.send(
+                embed=await self.responses.common_track_actions(
+                    track, "Stopped looping"
+                )
+            )
+        else:
+            player.queue.mode = wavelink.QueueMode.loop
+            return await interaction.followup.send(
                 embed=await self.responses.common_track_actions(track, "Looping")
             )
-            player.loop = True
-
-            ## Store the currently playing track so that it can be looped.
-            player.looped_track = track
-            return
-
-        player.loop = False
-        return await interaction.followup.send(
-            embed=await self.responses.common_track_actions(track, "Stopped looping")
-        )
 
     @app_commands.command(
         name="queueloop", description="Braum loops the current queue."
@@ -554,51 +550,36 @@ class Music(commands.Cog):
         """
         await interaction.response.defer()
 
+        ## Retrieve the player.
+        player = await self.functions.get_player(interaction.guild)
+
         ## If nothing is playing, respond.
-        if not await self.functions.get_track(interaction.guild):
+        if not player.playing:
             return await interaction.followup.send(
                 embed=await self.responses.nothing_is_playing()
             )
 
-        ## Retrieve the player.
-        player = await self.functions.get_player(interaction.guild)
-
-        ## Retrieve the currently playing track.
-        track = await self.functions.get_track(interaction.guild)
-        ## Retrieve the current queue.
-        queue = await self.functions.get_queue(interaction.guild)
-
         ## If there is less than 1 track in the queue and there is not a current queueloop, respond.
-        if len(queue) < 1 and not player.queue_loop:
+        if len(player.queue) < 1:
             return await interaction.followup.send(
                 embed=await self.responses.less_than_1_track()
             )
 
-        ## If the queue loop is not enabled, enable it.
-        if not player.queue_loop:
-            ## Send the msg before enabling the queue loop to avoid confusing embed titles.
-            await interaction.followup.send(
+        if player.queue.mode == wavelink.QueueMode.loop_all:
+            player.queue.mode = wavelink.QueueMode.normal
+            return await interaction.followup.send(
+                embed=await self.responses.common_track_actions(
+                    None, "Stopped looping the queue"
+                )
+            )
+        else:
+            player.queue.mode = wavelink.QueueMode.loop_all
+
+            return await interaction.followup.send(
                 embed=await self.responses.common_track_actions(
                     None, "Looping the queue"
                 )
             )
-            player.queue_loop = True
-
-            ## Add the currently playing track.
-            player.queue_looped_track = track
-            return
-
-        ## If the queue loop is already enabled, disable it.
-        player.queue_loop = False
-
-        ## Prevents the current track from constantly being assigned.
-        player.queue_looped_track = None
-
-        return await interaction.followup.send(
-            embed=await self.responses.common_track_actions(
-                None, "Stopped looping the queue"
-            )
-        )
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
     @app_commands.describe(
@@ -661,16 +642,11 @@ class Music(commands.Cog):
 
         # INITIALIZE PLAYER ATTRIBUTES
         player.reply = interaction.channel
-        if not hasattr(player, "loop"):
-            player.loop = False
-        if not hasattr(player, "queue_loop"):
-            player.queue_loop = False
-        if not hasattr(player, "looped_track"):
-            player.looped_track = None
-        if not hasattr(player, "queue_looped_track"):
-            player.queue_looped_track = None
+        player.now_playing_message = None
 
         if not hasattr(player, "custom_queue"):
+            # Store all tracks in a custom queue.
+            # This is meant to deliver a better history experience. (see /history)
             player.custom_queue = wavelink.Queue(history=True)
 
         # Automatically play the next track in the queue.
