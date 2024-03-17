@@ -570,22 +570,21 @@ class Music(commands.Cog):
                 embed=await self.responses.less_than_1_track()
             )
 
-        ## If the queue loop is not enabled, enable it.
-        if player.queue.mode in (wavelink.QueueMode.normal, wavelink.QueueMode.loop):
+        if player.queue.mode == wavelink.QueueMode.loop_all:
+            player.queue.mode = wavelink.QueueMode.normal
+            return await interaction.followup.send(
+                embed=await self.responses.common_track_actions(
+                    None, "Stopped looping the queue"
+                )
+            )
+        else:
             player.queue.mode = wavelink.QueueMode.loop_all
-            ## Send the msg before enabling the queue loop to avoid confusing embed titles.
+
             return await interaction.followup.send(
                 embed=await self.responses.common_track_actions(
                     None, "Looping the queue"
                 )
             )
-
-        player.queue.mode = wavelink.QueueMode.normal
-        return await interaction.followup.send(
-            embed=await self.responses.common_track_actions(
-                None, "Stopped looping the queue"
-            )
-        )
 
     @app_commands.command(name="play", description="Braum plays your desired song.")
     @app_commands.describe(

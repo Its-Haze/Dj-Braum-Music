@@ -130,7 +130,7 @@ class MusicEvents(commands.Cog):
 
                 player.now_playing_message = message
             except discord.errors.Forbidden:
-                logger.warning(
+                logger.error(
                     "Tried to send a message to a channel where the bot has no permissions.\n Buttons might now show correctly.."
                 )
 
