@@ -526,23 +526,18 @@ class Music(commands.Cog):
         ## Retrieve the currently playing track.
         track = await self.functions.get_track(interaction.guild)
 
-        ## If the loop is disabled, enable it.
-        if player.queue.mode in (
-            wavelink.QueueMode.normal,
-            wavelink.QueueMode.loop_all,
-        ):
-            ## Send the msg before enabling the loop to avoid confusing embed titles.
+        if player.queue.mode == wavelink.QueueMode.loop:
+            player.queue.mode = wavelink.QueueMode.normal
+            return await interaction.followup.send(
+                embed=await self.responses.common_track_actions(
+                    track, "Stopped looping"
+                )
+            )
+        else:
             player.queue.mode = wavelink.QueueMode.loop
-
             return await interaction.followup.send(
                 embed=await self.responses.common_track_actions(track, "Looping")
             )
-
-        # If the loop is already enabled, disable it.
-        player.queue.mode = wavelink.QueueMode.normal
-        return await interaction.followup.send(
-            embed=await self.responses.common_track_actions(track, "Stopped looping")
-        )
 
     @app_commands.command(
         name="queueloop", description="Braum loops the current queue."
