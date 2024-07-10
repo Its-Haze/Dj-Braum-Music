@@ -181,7 +181,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
                 f"{track.title} {track.author}",
                 source="spsearch",
             )
-            if _search_result:
+            if _search_result and len(_search_result) > 0:
                 track_metadata = _search_result[0]
 
         if player.queue.mode == wavelink.QueueMode.loop:
