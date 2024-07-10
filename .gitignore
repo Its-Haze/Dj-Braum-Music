@@ -8,3 +8,8 @@ discord.log
 venv/
 discord.log
 lavalink/application.yml
+discord.log*
+typings
+*/__pycache__/*
+lavalink/logs
+lavalink/plugins

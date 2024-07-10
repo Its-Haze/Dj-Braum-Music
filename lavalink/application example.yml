@@ -5,6 +5,21 @@ server: # REST and WS server
   http2:
     enabled: false # Whether to enable HTTP/2 support
 plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - MUSIC
+      - ANDROID_TESTSUITE
+      - WEB
+    WEB:
+      playback: false
+    TVHTML5EMBEDDED:
+      playlistLoading: false
+      videoLoading: false
+      searching: false 
   lavasrc:
     sources:
       spotify: true # Enable Spotify source
@@ -12,7 +27,7 @@ plugins:
       deezer: false # Enable Deezer source
       yandexmusic: false # Enable Yandex Music source
       flowerytts: false # Enable Flowery TTs source
-      youtube: true # Enable YouTube search source (https://github.com/topi314/LavaSearch)
+      youtube: false # Enable YouTube search source (https://github.com/topi314/LavaSearch)
     spotify:
       clientId: "Spotify client id here"
       clientSecret: "Spotify Client Secret here"
@@ -22,16 +37,20 @@ plugins:
 
 lavalink:
   plugins:
-    #    - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
-    #      repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
-    #      snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository
-  pluginsDir: "./plugins" # optional, defaults to "./plugins"
-  #  defaultPluginRepository: "https://maven.lavalink.dev/releases" # optional, defaults to the Lavalink release repository
-  #  defaultPluginSnapshotRepository: "https://maven.lavalink.dev/snapshots" # optional, defaults to the Lavalink snapshot repository
+      # - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
+      #     repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
+      #     snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.1.1"
+      repository: "https://maven.lavalink.dev/releases"
+    - dependency: "com.github.topi314.sponsorblock:sponsorblock-plugin:3.0.0"
+      repository: "https://maven.lavalink.dev/releases"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.4.0"
+      snapshot: false # Set to true if you want to use a snapshot version.
+  pluginsDir: "./plugins"
   server:
     password: "youshallnotpass"
     sources:
-      youtube: true
+      youtube: false
       bandcamp: true
       soundcloud: true
       twitch: true
