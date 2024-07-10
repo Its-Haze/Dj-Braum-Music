@@ -9,14 +9,7 @@ handlers:
     level: INFO
     formatter: detailed
     stream: ext://sys.stdout
-  file:
-    class: logging.handlers.TimedRotatingFileHandler
-    level: DEBUG
-    formatter: detailed
-    filename: discord.log
-    when: midnight
-    backupCount: 7
 loggers:
   "":
     level: DEBUG
-    handlers: [console, file]
+    handlers: [console]

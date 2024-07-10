@@ -168,6 +168,12 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         Displays the current track.
         """
+        # construct the embed
+        embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
+
+        # track_metadata is used to fetch extra information from spotify if found.
+        # If we get youtube tracks, fetch metadata from spotify.
+        track_metadata = None
 
         # Fetch extra information from spotify if exists.
         if track.source != "spotify":
@@ -175,10 +181,8 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
                 f"{track.title} {track.author}",
                 source="spsearch",
             )
-
-            track_metadata = _search_result[0]
-
-        embed = discord.Embed(title="**Now Playing**", colour=self.sucess_color)
+            if _search_result and len(_search_result) > 0:
+                track_metadata = _search_result[0]
 
         if player.queue.mode == wavelink.QueueMode.loop:
             embed = discord.Embed(
@@ -191,30 +195,53 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
                 colour=self.sucess_color,
             )
 
-        if not track.uri:
-            meta_uri = track_metadata.uri
-        embed.add_field(
-            name="Name",
-            value=f"[{track.title}]({track.uri or meta_uri})",
-            inline=False,
-        )
-        if not track.artist.url:
-            meta_artist_url = track_metadata.artist.url
-        embed.add_field(
-            name="Author",
-            value=f"[{track.author}]({track.artist.url or meta_artist_url})",
-            inline=False,
-        )
-
-        if not track.album.name:
-            meta_album_name = track_metadata.album.name
-        if not track.album.url:
-            meta_album_url = track_metadata.album.url
-        embed.add_field(
-            name="Album",
-            value=f"[{track.album.name or meta_album_name}]({track.album.url or meta_album_url})",
-            inline=False,
-        )
+        if track.source == "spotify":
+            embed.add_field(
+                name="Name",
+                value=f"[{track.title}]({track.uri})",
+                inline=False,
+            )
+            embed.add_field(
+                name="Author",
+                value=f"[{track.author}]({track.artist.url})",
+                inline=False,
+            )
+            embed.add_field(
+                name="Album",
+                value=f"[{track.album.name}]({track.album.url})",
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="Name",
+                value=f"[{track.title}]({track.uri})",
+                inline=False,
+            )
+            if track_metadata:
+                # Youtube track, but were able to find metadata from spotify
+                embed.add_field(
+                    name="Author",
+                    value=f"[{track_metadata.author}]({track_metadata.artist.url})",
+                    inline=False,
+                )
+                embed.add_field(
+                    name="Album",
+                    value=f"[{track_metadata.album.name}]({track_metadata.album.url})",
+                    inline=False,
+                )
+            else:
+                # Youtube track, and could not find any spotify equivalent track.
+                embed.add_field(
+                    name="Author",
+                    value=f"{track.author}",
+                    inline=False,
+                )
+                if getattr(track.album, "name", None):
+                    embed.add_field(
+                        name="Album",
+                        value=f"{track.album.name}",
+                        inline=False,
+                    )
 
         if is_playing:  ## If /nowplaying is called, show the duration played.
             embed.add_field(
@@ -249,13 +276,13 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
     async def show_queue(
         self,
         queue_info: list[wavelink.Playable],
-        guild_id,
+        guild: discord.Guild,
     ) -> discord.Embed:
         """
         Shows the queue
         """
-        player = await self.get_player(guild_id)  ## Retrieve the player.
-        queue_list = []  ## To store the tracks in the queue.
+        player = await self.get_player(guild)  ## Retrieve the player.
+        queue_list: list[str] = []  ## To store the tracks in the queue.
         title = "**Queue**"
 
         if len(queue_info) == 0:  ## If there are no tracks in the queue, respond.
@@ -291,7 +318,7 @@ class Responses(Functions):  # pylint:disable=too-many-public-methods
         """
         Shows the history
         """
-        history_list = []  ## To store the tracks in the queue.
+        history_list: list[str] = []  ## To store the tracks in the queue.
         title = "**History (Latest song on top)**"
 
         if len(queue_info) == 0:  ## If there are no tracks in the queue, respond.
