@@ -19,7 +19,7 @@ plugins:
     TVHTML5EMBEDDED:
       playlistLoading: false
       videoLoading: false
-      searching: false 
+      searching: false
   lavasrc:
     sources:
       spotify: true # Enable Spotify source
